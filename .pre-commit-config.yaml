@@ -47,3 +47,4 @@ repos:
           - pandas-stubs>=2.0.0
           - types-requests
           - pytest>=7.0.0
+        exclude: ^tests/
