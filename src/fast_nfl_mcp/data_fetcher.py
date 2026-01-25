@@ -243,12 +243,21 @@ class DataFetcher:
                     )
 
             # Select specific columns if requested
-            if columns:
+            if columns is not None:
+                if not columns:
+                    return create_error_response(
+                        error="Empty columns list provided. "
+                        "Please specify at least one column name."
+                    )
                 available_cols = set(df.columns)
                 valid_cols = [c for c in columns if c in available_cols]
                 invalid_cols = [c for c in columns if c not in available_cols]
-                if valid_cols:
-                    df = df[valid_cols]
+                if not valid_cols:
+                    return create_error_response(
+                        error=f"None of the requested columns exist: {invalid_cols}. "
+                        f"Use describe_dataset('{dataset}') to see available columns."
+                    )
+                df = df[valid_cols]
                 if invalid_cols:
                     logger.warning(f"Requested columns not found: {invalid_cols}")
 
