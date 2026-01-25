@@ -1,0 +1,16 @@
+services:
+  fast-nfl-mcp:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    environment:
+      - NFL_CACHE_DIR=/app/cache
+    volumes:
+      - nfl-cache:/app/cache
+    # MCP uses stdio transport, no ports needed
+    stdin_open: true
+    tty: true
+
+volumes:
+  nfl-cache:
+    name: fast-nfl-mcp-cache
