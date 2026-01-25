@@ -41,7 +41,7 @@ DATASET_DEFINITIONS: dict[
         2024,
     ),
     "rosters": (
-        lambda seasons: nfl.import_rosters(seasons),
+        lambda seasons: nfl.import_weekly_rosters(seasons),
         "Team rosters with player information",
         True,
         2024,

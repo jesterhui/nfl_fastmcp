@@ -18,6 +18,7 @@ from fast_nfl_mcp.tools.player_stats import (
     get_seasonal_stats_impl,
     get_weekly_stats_impl,
 )
+from fast_nfl_mcp.tools.rosters import get_rosters_impl
 from fast_nfl_mcp.tools.utilities import describe_dataset_impl, list_datasets_impl
 
 
@@ -305,6 +306,93 @@ def get_seasonal_stats(
         Paginate: get_seasonal_stats([2024], ["player_name", "team"], offset=100, limit=50)
     """
     return get_seasonal_stats_impl(seasons, columns, filters, offset, limit)
+
+
+@mcp.tool()
+def get_rosters(
+    seasons: list[int],
+    columns: Annotated[
+        list[str],
+        Field(
+            description="List of column names to include in output (REQUIRED). "
+            "Use describe_dataset('rosters') to see available columns. "
+            "Common useful columns: player_id, player_name, team, position, "
+            "jersey_number, status, height, weight, college"
+        ),
+    ],
+    weeks: list[int] | None = None,
+    teams: Annotated[
+        list[str] | None,
+        Field(
+            description="Filter by team abbreviations (e.g., ['KC', 'SF']). "
+            "Valid abbreviations: ARI, ATL, BAL, BUF, CAR, CHI, CIN, CLE, DAL, DEN, "
+            "DET, GB, HOU, IND, JAX, KC, LA, LAC, LV, MIA, MIN, NE, NO, NYG, NYJ, "
+            "PHI, PIT, SEA, SF, TB, TEN, WAS"
+        ),
+    ] = None,
+    filters: Annotated[
+        dict[str, Any] | None,
+        Field(
+            description="Filter on any column. Keys are column names, values are "
+            "either a single value or list of acceptable values. "
+            'Example: {"position": "QB", "status": ["ACT", "RES"]}'
+        ),
+    ] = None,
+    offset: Annotated[
+        int,
+        Field(
+            description="Number of rows to skip for pagination. Use with limit "
+            "to page through results.",
+            ge=0,
+        ),
+    ] = 0,
+    limit: Annotated[
+        int | None,
+        Field(
+            description="Maximum number of rows to return (default 100, max 100).",
+            ge=1,
+            le=100,
+        ),
+    ] = None,
+) -> SuccessResponse | ErrorResponse:
+    """Get NFL team roster data with player information.
+
+    Retrieves roster data for specified seasons with optional filtering by
+    weeks and teams. Roster data includes player details, positions, physical
+    attributes, and roster status.
+
+    Key columns include:
+    - Player info: player_id, player_name, position, jersey_number
+    - Team info: team, status (ACT=Active, RES=Reserve, etc.)
+    - Physical: height, weight, age
+    - Background: college, draft_year, draft_round, draft_pick
+    - Seasonal: season, week
+
+    Args:
+        seasons: List of seasons (e.g., [2023, 2024]). Maximum 5 seasons allowed.
+                 Roster data is available from 1999 onwards.
+        columns: List of column names to include (REQUIRED to manage response size).
+        weeks: Optional list of weeks to filter (1-18 for regular season).
+               If not specified, returns data for all weeks.
+        teams: Optional list of team abbreviations to filter (e.g., ["KC", "SF"]).
+               Use standard NFL team abbreviations.
+        filters: Optional dict to filter on any column. Keys are column names,
+                 values can be a single value or list of acceptable values.
+                 Use describe_dataset("rosters") to see available columns.
+        offset: Number of rows to skip for pagination (default 0).
+        limit: Maximum number of rows to return (default 100, max 100).
+
+    Returns:
+        Roster data as JSON with up to 100 rows by default. Use offset and limit
+        to paginate through larger result sets.
+
+    Examples:
+        Get roster data: get_rosters([2024], ["player_name", "team", "position"])
+        Filter by team: get_rosters([2024], ["player_name", "position"], teams=["KC"])
+        Filter by week: get_rosters([2024], ["player_name", "team"], weeks=[1])
+        Filter QBs: get_rosters([2024], ["player_name", "team"], filters={"position": "QB"})
+    """
+    return get_rosters_impl(seasons, weeks, teams, filters, offset, limit, columns)
 
 
 def main() -> None:
