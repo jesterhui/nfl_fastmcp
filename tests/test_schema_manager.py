@@ -102,7 +102,7 @@ class TestExtractColumnSchema:
 
         assert schema.name == "col1"
         assert schema.dtype == "int64"
-        assert len(schema.sample_values) <= 5
+        assert len(schema.sample_values) <= 2
         assert schema.null_count == 0
         assert schema.unique_count == 5
 

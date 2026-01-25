@@ -145,12 +145,12 @@ DATASET_DEFINITIONS: dict[
 }
 
 
-def _extract_sample_values(series: pd.Series, max_samples: int = 5) -> list[Any]:
+def _extract_sample_values(series: pd.Series, max_samples: int = 2) -> list[Any]:
     """Extract sample values from a pandas Series.
 
     Args:
         series: The pandas Series to extract samples from.
-        max_samples: Maximum number of samples to extract (default 5).
+        max_samples: Maximum number of samples to extract (default 2).
 
     Returns:
         A list of sample values, with NaN values excluded.

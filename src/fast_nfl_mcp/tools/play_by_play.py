@@ -4,22 +4,15 @@ This module provides the get_play_by_play MCP tool for retrieving
 NFL play-by-play data with EPA, WPA, and detailed play outcomes.
 """
 
+from typing import Any
+
+from fast_nfl_mcp.constants import MAX_SEASONS, MAX_WEEK, MIN_SEASON, MIN_WEEK
 from fast_nfl_mcp.data_fetcher import DataFetcher
 from fast_nfl_mcp.models import (
     ErrorResponse,
     SuccessResponse,
     create_success_response,
 )
-
-# Maximum number of seasons allowed per request
-MAX_SEASONS = 3
-
-# Valid week range for NFL regular season
-MIN_WEEK = 1
-MAX_WEEK = 18
-
-# Earliest season with reliable play-by-play data
-MIN_SEASON = 1999
 
 
 def validate_seasons(seasons: list[int]) -> tuple[list[int], str | None]:
@@ -96,9 +89,37 @@ def validate_weeks(weeks: list[int] | None) -> tuple[list[int] | None, str | Non
     return valid_weeks if valid_weeks else None, warning
 
 
+def normalize_filters(
+    filters: dict[str, Any] | None,
+) -> dict[str, list[Any]]:
+    """Normalize filter values to lists.
+
+    Args:
+        filters: Dict mapping column names to filter values.
+                 Values can be single items or lists.
+
+    Returns:
+        Dict with all values normalized to lists.
+    """
+    if filters is None:
+        return {}
+
+    normalized: dict[str, list[Any]] = {}
+    for column, value in filters.items():
+        if isinstance(value, list):
+            normalized[column] = value
+        else:
+            normalized[column] = [value]
+    return normalized
+
+
 def get_play_by_play_impl(
     seasons: list[int],
     weeks: list[int] | None = None,
+    filters: dict[str, Any] | None = None,
+    offset: int = 0,
+    limit: int | None = None,
+    columns: list[str] | None = None,
 ) -> SuccessResponse | ErrorResponse:
     """Get NFL play-by-play data including EPA, WPA, and detailed play outcomes.
 
@@ -113,9 +134,15 @@ def get_play_by_play_impl(
     Args:
         seasons: List of seasons (e.g., [2023, 2024]). Maximum 3 seasons allowed.
         weeks: Optional list of weeks to filter (1-18). All weeks if not specified.
+        filters: Optional dict mapping column names to filter values.
+                 Values can be single items or lists of acceptable values.
+                 Example: {"home_team": "TB", "play_type": ["pass", "run"]}
+        offset: Number of rows to skip for pagination (default 0).
+        limit: Maximum number of rows to return (default 100, max 100).
+        columns: List of column names to include in output (required).
 
     Returns:
-        SuccessResponse with play-by-play data (up to 100 rows),
+        SuccessResponse with play-by-play data (up to 100 rows by default),
         or ErrorResponse on failure.
     """
     warnings: list[str] = []
@@ -138,20 +165,21 @@ def get_play_by_play_impl(
     if week_warning:
         warnings.append(week_warning)
 
-    # Fetch the data using generic fetch
-    fetcher = DataFetcher()
-    result = fetcher.fetch("play_by_play", {"seasons": valid_seasons})
+    # Build filters (normalize user filters and add week filter)
+    combined_filters = normalize_filters(filters)
+    if valid_weeks:
+        combined_filters["week"] = valid_weeks
 
-    # Apply week filtering if specified (post-fetch filtering)
-    if valid_weeks and isinstance(result, SuccessResponse) and result.data:
-        filtered_data = [row for row in result.data if row.get("week") in valid_weeks]
-        result = create_success_response(
-            data=filtered_data,
-            total_available=len(filtered_data),
-            truncated=result.metadata.truncated,
-            columns=result.metadata.columns,
-            warning=result.warning,
-        )
+    # Fetch the data using generic fetch with filters and pagination
+    fetcher = DataFetcher()
+    result = fetcher.fetch(
+        "play_by_play",
+        {"seasons": valid_seasons},
+        combined_filters,
+        offset=offset,
+        limit=limit,
+        columns=columns,
+    )
 
     # Add any validation warnings to the result
     if warnings and isinstance(result, SuccessResponse):

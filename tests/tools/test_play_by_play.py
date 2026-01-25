@@ -9,13 +9,17 @@ from unittest.mock import patch
 import pandas as pd
 import pytest
 
-from fast_nfl_mcp.models import ErrorResponse, SuccessResponse
-from fast_nfl_mcp.tools.play_by_play import (
+from fast_nfl_mcp.constants import (
+    DEFAULT_MAX_ROWS,
     MAX_SEASONS,
     MAX_WEEK,
     MIN_SEASON,
     MIN_WEEK,
+)
+from fast_nfl_mcp.models import ErrorResponse, SuccessResponse
+from fast_nfl_mcp.tools.play_by_play import (
     get_play_by_play_impl,
+    normalize_filters,
     validate_seasons,
     validate_weeks,
 )
@@ -78,6 +82,40 @@ class TestValidateSeasons:
         valid, warning = validate_seasons([MIN_SEASON])
         assert valid == [MIN_SEASON]
         assert warning is None
+
+
+class TestNormalizeFilters:
+    """Tests for the normalize_filters function."""
+
+    def test_none_filters(self) -> None:
+        """Test that None filters returns empty dict."""
+        result = normalize_filters(None)
+        assert result == {}
+
+    def test_empty_filters(self) -> None:
+        """Test that empty filters returns empty dict."""
+        result = normalize_filters({})
+        assert result == {}
+
+    def test_single_value_normalized_to_list(self) -> None:
+        """Test that single values are normalized to lists."""
+        result = normalize_filters({"team": "TB"})
+        assert result == {"team": ["TB"]}
+
+    def test_list_value_preserved(self) -> None:
+        """Test that list values are preserved."""
+        result = normalize_filters({"team": ["TB", "KC"]})
+        assert result == {"team": ["TB", "KC"]}
+
+    def test_mixed_values(self) -> None:
+        """Test mixed single and list values."""
+        result = normalize_filters({"team": "TB", "play_type": ["pass", "run"]})
+        assert result == {"team": ["TB"], "play_type": ["pass", "run"]}
+
+    def test_integer_values(self) -> None:
+        """Test integer values are normalized."""
+        result = normalize_filters({"down": 3})
+        assert result == {"down": [3]}
 
 
 class TestValidateWeeks:
@@ -202,7 +240,7 @@ class TestGetPlayByPlayImpl:
                 assert row["week"] == 1
 
     def test_truncation_at_max_rows(self, large_pbp_df: pd.DataFrame) -> None:
-        """Test that results are truncated at MAX_ROWS."""
+        """Test that results are truncated at DEFAULT_MAX_ROWS."""
         with patch("fast_nfl_mcp.schema_manager.nfl.import_pbp_data") as mock_import:
             mock_import.return_value = large_pbp_df
 
@@ -210,7 +248,7 @@ class TestGetPlayByPlayImpl:
 
             assert isinstance(result, SuccessResponse)
             assert result.success is True
-            assert len(result.data) == 100  # MAX_ROWS
+            assert len(result.data) == DEFAULT_MAX_ROWS
             assert result.metadata.truncated is True
             assert result.metadata.total_available == 150
 
@@ -318,6 +356,157 @@ class TestGetPlayByPlayImpl:
             assert result.warning is not None
             assert "Invalid seasons removed" in result.warning
             assert "Invalid weeks removed" in result.warning
+
+    def test_filter_by_single_team(self, sample_pbp_df: pd.DataFrame) -> None:
+        """Test filtering by a single team value."""
+        with patch("fast_nfl_mcp.schema_manager.nfl.import_pbp_data") as mock_import:
+            mock_import.return_value = sample_pbp_df
+
+            result = get_play_by_play_impl([2024], filters={"posteam": "KC"})
+
+            assert isinstance(result, SuccessResponse)
+            assert result.success is True
+            # Only KC plays should be returned
+            assert len(result.data) == 2
+            for row in result.data:
+                assert row["posteam"] == "KC"
+
+    def test_filter_by_team_list(self, sample_pbp_df: pd.DataFrame) -> None:
+        """Test filtering by a list of teams."""
+        with patch("fast_nfl_mcp.schema_manager.nfl.import_pbp_data") as mock_import:
+            mock_import.return_value = sample_pbp_df
+
+            result = get_play_by_play_impl([2024], filters={"posteam": ["KC", "SF"]})
+
+            assert isinstance(result, SuccessResponse)
+            assert result.success is True
+            assert len(result.data) == 3
+            for row in result.data:
+                assert row["posteam"] in ["KC", "SF"]
+
+    def test_filter_by_play_type(self, sample_pbp_df: pd.DataFrame) -> None:
+        """Test filtering by play type."""
+        with patch("fast_nfl_mcp.schema_manager.nfl.import_pbp_data") as mock_import:
+            mock_import.return_value = sample_pbp_df
+
+            result = get_play_by_play_impl([2024], filters={"play_type": "pass"})
+
+            assert isinstance(result, SuccessResponse)
+            assert result.success is True
+            assert len(result.data) == 2
+            for row in result.data:
+                assert row["play_type"] == "pass"
+
+    def test_combined_filters(self, sample_pbp_df: pd.DataFrame) -> None:
+        """Test multiple filters applied together."""
+        with patch("fast_nfl_mcp.schema_manager.nfl.import_pbp_data") as mock_import:
+            mock_import.return_value = sample_pbp_df
+
+            result = get_play_by_play_impl(
+                [2024], filters={"posteam": "KC", "play_type": "pass"}
+            )
+
+            assert isinstance(result, SuccessResponse)
+            assert result.success is True
+            # Only KC pass plays
+            assert len(result.data) == 1
+            assert result.data[0]["posteam"] == "KC"
+            assert result.data[0]["play_type"] == "pass"
+
+    def test_filter_with_weeks(self, sample_pbp_df: pd.DataFrame) -> None:
+        """Test filters combined with week filtering."""
+        with patch("fast_nfl_mcp.schema_manager.nfl.import_pbp_data") as mock_import:
+            mock_import.return_value = sample_pbp_df
+
+            result = get_play_by_play_impl(
+                [2024], weeks=[1], filters={"play_type": "pass"}
+            )
+
+            assert isinstance(result, SuccessResponse)
+            assert result.success is True
+            # Week 1 pass plays only
+            assert len(result.data) == 1
+            assert result.data[0]["week"] == 1
+            assert result.data[0]["play_type"] == "pass"
+
+    def test_filter_no_matches(self, sample_pbp_df: pd.DataFrame) -> None:
+        """Test filters that match no rows."""
+        with patch("fast_nfl_mcp.schema_manager.nfl.import_pbp_data") as mock_import:
+            mock_import.return_value = sample_pbp_df
+
+            result = get_play_by_play_impl([2024], filters={"posteam": "NYG"})
+
+            assert isinstance(result, SuccessResponse)
+            assert result.success is True
+            assert len(result.data) == 0
+            assert result.warning is not None
+            assert "No data matched" in result.warning
+
+    def test_filter_nonexistent_column(self, sample_pbp_df: pd.DataFrame) -> None:
+        """Test filtering on a column that doesn't exist (ignored)."""
+        with patch("fast_nfl_mcp.schema_manager.nfl.import_pbp_data") as mock_import:
+            mock_import.return_value = sample_pbp_df
+
+            # Nonexistent column should be ignored
+            result = get_play_by_play_impl(
+                [2024], filters={"nonexistent_column": "value"}
+            )
+
+            assert isinstance(result, SuccessResponse)
+            assert result.success is True
+            # All rows returned since filter was ignored
+            assert len(result.data) == 3
+
+    def test_pagination_with_offset(self, large_pbp_df: pd.DataFrame) -> None:
+        """Test that offset skips rows for pagination."""
+        with patch("fast_nfl_mcp.schema_manager.nfl.import_pbp_data") as mock_import:
+            mock_import.return_value = large_pbp_df
+
+            result = get_play_by_play_impl([2024], offset=10)
+
+            assert isinstance(result, SuccessResponse)
+            assert result.success is True
+            assert len(result.data) == DEFAULT_MAX_ROWS
+            # First row should be play_id=10 (skipped first 10)
+            assert result.data[0]["play_id"] == 10
+
+    def test_pagination_with_limit(self, large_pbp_df: pd.DataFrame) -> None:
+        """Test that limit controls number of rows returned."""
+        with patch("fast_nfl_mcp.schema_manager.nfl.import_pbp_data") as mock_import:
+            mock_import.return_value = large_pbp_df
+
+            result = get_play_by_play_impl([2024], limit=5)
+
+            assert isinstance(result, SuccessResponse)
+            assert result.success is True
+            assert len(result.data) == 5
+            assert result.metadata.row_count == 5
+
+    def test_pagination_with_offset_and_limit(self, large_pbp_df: pd.DataFrame) -> None:
+        """Test pagination with both offset and limit."""
+        with patch("fast_nfl_mcp.schema_manager.nfl.import_pbp_data") as mock_import:
+            mock_import.return_value = large_pbp_df
+
+            result = get_play_by_play_impl([2024], offset=20, limit=15)
+
+            assert isinstance(result, SuccessResponse)
+            assert result.success is True
+            assert len(result.data) == 15
+            # First row should be play_id=20 (skipped first 20)
+            assert result.data[0]["play_id"] == 20
+
+    def test_pagination_warning_shows_next_offset(
+        self, large_pbp_df: pd.DataFrame
+    ) -> None:
+        """Test that truncation warning includes next offset."""
+        with patch("fast_nfl_mcp.schema_manager.nfl.import_pbp_data") as mock_import:
+            mock_import.return_value = large_pbp_df
+
+            result = get_play_by_play_impl([2024], offset=10, limit=10)
+
+            assert isinstance(result, SuccessResponse)
+            assert result.warning is not None
+            assert "offset=20" in result.warning
 
 
 class TestGetPlayByPlayIntegration:
