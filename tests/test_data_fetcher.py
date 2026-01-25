@@ -741,3 +741,98 @@ class TestDataFetcherParamsHandling:
             response = fetcher.fetch("test", {"unknown_param": "value"})
 
             assert isinstance(response, SuccessResponse)
+
+
+class TestDataFetcherColumnSelection:
+    """Tests for column selection in fetch method."""
+
+    def test_empty_columns_list_returns_error(self) -> None:
+        """Test that an empty columns list returns an error."""
+        df = pd.DataFrame({"col1": [1], "col2": [2]})
+
+        with patch.dict(
+            "fast_nfl_mcp.data_fetcher.DATASET_DEFINITIONS",
+            {
+                "test": (lambda _: df, "Test", True, 2024),
+            },
+            clear=True,
+        ):
+            fetcher = DataFetcher()
+            response = fetcher.fetch("test", columns=[])
+
+            assert isinstance(response, ErrorResponse)
+            assert response.success is False
+            assert "Empty columns list" in response.error
+
+    def test_all_invalid_columns_returns_error(self) -> None:
+        """Test that all invalid column names returns an error."""
+        df = pd.DataFrame({"col1": [1], "col2": [2]})
+
+        with patch.dict(
+            "fast_nfl_mcp.data_fetcher.DATASET_DEFINITIONS",
+            {
+                "test": (lambda _: df, "Test", True, 2024),
+            },
+            clear=True,
+        ):
+            fetcher = DataFetcher()
+            response = fetcher.fetch("test", columns=["invalid1", "invalid2"])
+
+            assert isinstance(response, ErrorResponse)
+            assert response.success is False
+            assert "None of the requested columns exist" in response.error
+            assert "invalid1" in response.error
+            assert "invalid2" in response.error
+
+    def test_valid_columns_selected(self) -> None:
+        """Test that valid columns are properly selected."""
+        df = pd.DataFrame({"col1": [1], "col2": [2], "col3": [3]})
+
+        with patch.dict(
+            "fast_nfl_mcp.data_fetcher.DATASET_DEFINITIONS",
+            {
+                "test": (lambda _: df, "Test", True, 2024),
+            },
+            clear=True,
+        ):
+            fetcher = DataFetcher()
+            response = fetcher.fetch("test", columns=["col1", "col3"])
+
+            assert isinstance(response, SuccessResponse)
+            assert response.metadata.columns == ["col1", "col3"]
+            assert "col2" not in response.data[0]
+
+    def test_mixed_valid_invalid_columns_returns_valid_only(self) -> None:
+        """Test that mixed valid/invalid columns returns only valid ones."""
+        df = pd.DataFrame({"col1": [1], "col2": [2]})
+
+        with patch.dict(
+            "fast_nfl_mcp.data_fetcher.DATASET_DEFINITIONS",
+            {
+                "test": (lambda _: df, "Test", True, 2024),
+            },
+            clear=True,
+        ):
+            fetcher = DataFetcher()
+            response = fetcher.fetch("test", columns=["col1", "invalid"])
+
+            assert isinstance(response, SuccessResponse)
+            assert response.metadata.columns == ["col1"]
+            assert "col2" not in response.data[0]
+
+    def test_columns_none_returns_all_columns(self) -> None:
+        """Test that columns=None returns all columns."""
+        df = pd.DataFrame({"col1": [1], "col2": [2]})
+
+        with patch.dict(
+            "fast_nfl_mcp.data_fetcher.DATASET_DEFINITIONS",
+            {
+                "test": (lambda _: df, "Test", True, 2024),
+            },
+            clear=True,
+        ):
+            fetcher = DataFetcher()
+            response = fetcher.fetch("test", columns=None)
+
+            assert isinstance(response, SuccessResponse)
+            assert set(response.metadata.columns) == {"col1", "col2"}
