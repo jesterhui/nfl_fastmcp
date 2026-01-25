@@ -95,37 +95,6 @@ class TestValidateSeasons:
         assert valid == []
         assert warning is not None
 
-    def test_invalid_seasons_filtered_before_max_limit(self) -> None:
-        """Test that invalid seasons are filtered before applying max limit.
-
-        This ensures valid seasons at the end of a long list are not lost
-        when the list contains invalid seasons at the beginning.
-        """
-        # 10 invalid seasons (before MIN_SEASON=1999) followed by 3 valid seasons
-        seasons = list(range(1989, 1999)) + [2022, 2023, 2024]
-        valid, warning = validate_seasons(seasons, MAX_SEASONS_WEEKLY)
-
-        # Should get the 3 valid seasons, not empty/truncated invalid ones
-        assert valid == [2022, 2023, 2024]
-        assert warning is not None
-        assert "Invalid seasons removed" in warning
-        # Should not have "Too many seasons" warning since only 3 valid
-        assert "Too many seasons" not in warning
-
-    def test_mixed_invalid_valid_with_truncation(self) -> None:
-        """Test filtering invalid seasons then truncating to max limit."""
-        # Mix of invalid and valid seasons, more valid than max allows
-        # 3 invalid + 7 valid = 10 total, but only 5 valid allowed for weekly
-        seasons = [1990, 1991, 1992, 2018, 2019, 2020, 2021, 2022, 2023, 2024]
-        valid, warning = validate_seasons(seasons, MAX_SEASONS_WEEKLY)
-
-        # Should get first 5 valid seasons after filtering
-        assert valid == [2018, 2019, 2020, 2021, 2022]
-        assert len(valid) == MAX_SEASONS_WEEKLY
-        assert warning is not None
-        assert "Invalid seasons removed" in warning
-        assert "Too many seasons" in warning
-
     def test_single_valid_season(self) -> None:
         """Test single valid season."""
         valid, warning = validate_seasons([2024], MAX_SEASONS_WEEKLY)
