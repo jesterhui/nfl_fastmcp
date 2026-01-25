@@ -14,6 +14,10 @@ from pydantic import Field
 from fast_nfl_mcp.models import ErrorResponse, SuccessResponse
 from fast_nfl_mcp.schema_manager import SchemaManager
 from fast_nfl_mcp.tools.play_by_play import get_play_by_play_impl
+from fast_nfl_mcp.tools.player_stats import (
+    get_seasonal_stats_impl,
+    get_weekly_stats_impl,
+)
 from fast_nfl_mcp.tools.utilities import describe_dataset_impl, list_datasets_impl
 
 
@@ -156,6 +160,151 @@ def get_play_by_play(
         Paginate: get_play_by_play([2024], ["play_id", "desc"], offset=100, limit=50)
     """
     return get_play_by_play_impl(seasons, weeks, filters, offset, limit, columns)
+
+
+@mcp.tool()
+def get_weekly_stats(
+    seasons: list[int],
+    columns: Annotated[
+        list[str],
+        Field(
+            description="List of column names to include in output (REQUIRED). "
+            "Use describe_dataset('weekly_stats') to see available columns. "
+            "Common useful columns: player_id, player_name, season, week, team, "
+            "passing_yards, passing_tds, rushing_yards, receiving_yards, fantasy_points"
+        ),
+    ],
+    filters: Annotated[
+        dict[str, Any] | None,
+        Field(
+            description="Filter on any column. Keys are column names, values are "
+            "either a single value or list of acceptable values. "
+            'Example: {"team": "KC", "week": [1, 2, 3]}'
+        ),
+    ] = None,
+    offset: Annotated[
+        int,
+        Field(
+            description="Number of rows to skip for pagination. Use with limit to page through results.",
+            ge=0,
+        ),
+    ] = 0,
+    limit: Annotated[
+        int | None,
+        Field(
+            description="Maximum number of rows to return (default 100, max 100).",
+            ge=1,
+            le=100,
+        ),
+    ] = None,
+) -> SuccessResponse | ErrorResponse:
+    """Get weekly aggregated player statistics.
+
+    Retrieves player-level statistics aggregated by week for specified seasons.
+    Includes passing, rushing, receiving, and fantasy statistics for each player's
+    weekly performance.
+
+    Key columns include:
+    - Player info: player_id, player_name, team, position
+    - Game context: season, week
+    - Passing: passing_yards, passing_tds, interceptions, completions, attempts
+    - Rushing: rushing_yards, rushing_tds, carries
+    - Receiving: receiving_yards, receiving_tds, receptions, targets
+    - Fantasy: fantasy_points, fantasy_points_ppr
+
+    Args:
+        seasons: List of seasons (e.g., [2023, 2024]). Maximum 5 seasons allowed.
+                 Weekly stats data is available from 1999 onwards.
+        columns: List of column names to include (REQUIRED to manage response size).
+        filters: Optional dict to filter on any column. Keys are column names,
+                 values can be a single value or list of acceptable values.
+                 Use describe_dataset("weekly_stats") to see available columns.
+        offset: Number of rows to skip for pagination (default 0).
+        limit: Maximum number of rows to return (default 100, max 100).
+
+    Returns:
+        Weekly stats data as JSON with up to 100 rows by default. Use offset and limit
+        to paginate through larger result sets.
+
+    Examples:
+        Get QB stats: get_weekly_stats([2024], ["player_name", "passing_yards", "passing_tds"])
+        Filter by team: get_weekly_stats([2024], ["player_name", "rushing_yards"], filters={"team": "KC"})
+        Filter by week: get_weekly_stats([2024], ["player_name", "fantasy_points"], filters={"week": [1, 2]})
+        Paginate: get_weekly_stats([2024], ["player_name", "team"], offset=100, limit=50)
+    """
+    return get_weekly_stats_impl(seasons, columns, filters, offset, limit)
+
+
+@mcp.tool()
+def get_seasonal_stats(
+    seasons: list[int],
+    columns: Annotated[
+        list[str],
+        Field(
+            description="List of column names to include in output (REQUIRED). "
+            "Use describe_dataset('seasonal_stats') to see available columns. "
+            "Common useful columns: player_id, player_name, season, team, "
+            "passing_yards, passing_tds, rushing_yards, receiving_yards"
+        ),
+    ],
+    filters: Annotated[
+        dict[str, Any] | None,
+        Field(
+            description="Filter on any column. Keys are column names, values are "
+            "either a single value or list of acceptable values. "
+            'Example: {"team": "KC", "season": 2024}'
+        ),
+    ] = None,
+    offset: Annotated[
+        int,
+        Field(
+            description="Number of rows to skip for pagination. Use with limit to page through results.",
+            ge=0,
+        ),
+    ] = 0,
+    limit: Annotated[
+        int | None,
+        Field(
+            description="Maximum number of rows to return (default 100, max 100).",
+            ge=1,
+            le=100,
+        ),
+    ] = None,
+) -> SuccessResponse | ErrorResponse:
+    """Get season-level player statistics.
+
+    Retrieves player-level statistics aggregated for entire seasons. Useful for
+    analyzing full-season performance, comparing players across seasons, and
+    identifying statistical leaders.
+
+    Key columns include:
+    - Player info: player_id, player_name, team, position
+    - Season context: season
+    - Passing: passing_yards, passing_tds, interceptions, completions, attempts
+    - Rushing: rushing_yards, rushing_tds, carries
+    - Receiving: receiving_yards, receiving_tds, receptions, targets
+    - Games: games, games_started
+
+    Args:
+        seasons: List of seasons (e.g., [2020, 2021, 2022]). Maximum 10 seasons allowed.
+                 Seasonal stats data is available from 1999 onwards.
+        columns: List of column names to include (REQUIRED to manage response size).
+        filters: Optional dict to filter on any column. Keys are column names,
+                 values can be a single value or list of acceptable values.
+                 Use describe_dataset("seasonal_stats") to see available columns.
+        offset: Number of rows to skip for pagination (default 0).
+        limit: Maximum number of rows to return (default 100, max 100).
+
+    Returns:
+        Seasonal stats data as JSON with up to 100 rows by default. Use offset and limit
+        to paginate through larger result sets.
+
+    Examples:
+        Get career stats: get_seasonal_stats([2020, 2021, 2022, 2023, 2024], ["player_name", "passing_yards"])
+        Filter by team: get_seasonal_stats([2024], ["player_name", "rushing_yards"], filters={"team": "KC"})
+        Paginate: get_seasonal_stats([2024], ["player_name", "team"], offset=100, limit=50)
+    """
+    return get_seasonal_stats_impl(seasons, columns, filters, offset, limit)
 
 
 def main() -> None:
