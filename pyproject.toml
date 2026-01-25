@@ -78,6 +78,14 @@ plugins = ["pydantic.mypy"]
 module = ["nfl_data_py.*"]
 ignore_missing_imports = true
 
+[[tool.mypy.overrides]]
+module = ["pytest.*", "pytest"]
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = ["fastmcp.*", "fastmcp"]
+ignore_missing_imports = true
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 asyncio_mode = "auto"
