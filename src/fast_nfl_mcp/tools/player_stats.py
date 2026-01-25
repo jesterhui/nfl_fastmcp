@@ -35,14 +35,9 @@ def validate_seasons(
     if not seasons:
         return [], "No seasons provided. Please specify at least one season."
 
-    if len(seasons) > max_seasons:
-        return (
-            seasons[:max_seasons],
-            f"Too many seasons requested ({len(seasons)}). "
-            f"Limited to {max_seasons} seasons: {seasons[:max_seasons]}",
-        )
+    warnings: list[str] = []
 
-    # Filter out invalid seasons
+    # First filter out invalid seasons (before applying max limit)
     valid_seasons = []
     invalid_seasons = []
     for season in seasons:
@@ -51,13 +46,21 @@ def validate_seasons(
         else:
             invalid_seasons.append(season)
 
-    warning = None
     if invalid_seasons:
-        warning = (
+        warnings.append(
             f"Invalid seasons removed: {invalid_seasons}. "
             f"Data is available from {MIN_SEASON} onwards."
         )
 
+    # Then apply max_seasons limit to valid seasons only
+    if len(valid_seasons) > max_seasons:
+        warnings.append(
+            f"Too many seasons requested ({len(valid_seasons)} valid). "
+            f"Limited to {max_seasons} seasons: {valid_seasons[:max_seasons]}"
+        )
+        valid_seasons = valid_seasons[:max_seasons]
+
+    warning = " ".join(warnings) if warnings else None
     return valid_seasons, warning
 
 
