@@ -138,9 +138,20 @@ def get_play_by_play_impl(
     if week_warning:
         warnings.append(week_warning)
 
-    # Fetch the data
+    # Fetch the data using generic fetch
     fetcher = DataFetcher()
-    result = fetcher.fetch_play_by_play(valid_seasons, valid_weeks)
+    result = fetcher.fetch("play_by_play", {"seasons": valid_seasons})
+
+    # Apply week filtering if specified (post-fetch filtering)
+    if valid_weeks and isinstance(result, SuccessResponse) and result.data:
+        filtered_data = [row for row in result.data if row.get("week") in valid_weeks]
+        result = create_success_response(
+            data=filtered_data,
+            total_available=len(filtered_data),
+            truncated=result.metadata.truncated,
+            columns=result.metadata.columns,
+            warning=result.warning,
+        )
 
     # Add any validation warnings to the result
     if warnings and isinstance(result, SuccessResponse):

@@ -177,7 +177,7 @@ class TestGetPlayByPlayImpl:
 
     def test_successful_fetch(self, sample_pbp_df: pd.DataFrame) -> None:
         """Test successful data fetch returns SuccessResponse."""
-        with patch("fast_nfl_mcp.data_fetcher.nfl.import_pbp_data") as mock_import:
+        with patch("fast_nfl_mcp.schema_manager.nfl.import_pbp_data") as mock_import:
             mock_import.return_value = sample_pbp_df
 
             result = get_play_by_play_impl([2024])
@@ -189,7 +189,7 @@ class TestGetPlayByPlayImpl:
 
     def test_week_filtering(self, sample_pbp_df: pd.DataFrame) -> None:
         """Test that week filtering works correctly."""
-        with patch("fast_nfl_mcp.data_fetcher.nfl.import_pbp_data") as mock_import:
+        with patch("fast_nfl_mcp.schema_manager.nfl.import_pbp_data") as mock_import:
             mock_import.return_value = sample_pbp_df
 
             result = get_play_by_play_impl([2024], [1])
@@ -203,7 +203,7 @@ class TestGetPlayByPlayImpl:
 
     def test_truncation_at_max_rows(self, large_pbp_df: pd.DataFrame) -> None:
         """Test that results are truncated at MAX_ROWS."""
-        with patch("fast_nfl_mcp.data_fetcher.nfl.import_pbp_data") as mock_import:
+        with patch("fast_nfl_mcp.schema_manager.nfl.import_pbp_data") as mock_import:
             mock_import.return_value = large_pbp_df
 
             result = get_play_by_play_impl([2024])
@@ -226,7 +226,7 @@ class TestGetPlayByPlayImpl:
 
     def test_invalid_seasons_warning(self, sample_pbp_df: pd.DataFrame) -> None:
         """Test that invalid seasons produce warning."""
-        with patch("fast_nfl_mcp.data_fetcher.nfl.import_pbp_data") as mock_import:
+        with patch("fast_nfl_mcp.schema_manager.nfl.import_pbp_data") as mock_import:
             mock_import.return_value = sample_pbp_df
 
             result = get_play_by_play_impl([1990, 2024])
@@ -237,7 +237,7 @@ class TestGetPlayByPlayImpl:
 
     def test_too_many_seasons_warning(self, sample_pbp_df: pd.DataFrame) -> None:
         """Test that exceeding MAX_SEASONS produces warning."""
-        with patch("fast_nfl_mcp.data_fetcher.nfl.import_pbp_data") as mock_import:
+        with patch("fast_nfl_mcp.schema_manager.nfl.import_pbp_data") as mock_import:
             mock_import.return_value = sample_pbp_df
 
             result = get_play_by_play_impl([2020, 2021, 2022, 2023, 2024])
@@ -248,7 +248,7 @@ class TestGetPlayByPlayImpl:
 
     def test_invalid_weeks_warning(self, sample_pbp_df: pd.DataFrame) -> None:
         """Test that invalid weeks produce warning."""
-        with patch("fast_nfl_mcp.data_fetcher.nfl.import_pbp_data") as mock_import:
+        with patch("fast_nfl_mcp.schema_manager.nfl.import_pbp_data") as mock_import:
             mock_import.return_value = sample_pbp_df
 
             result = get_play_by_play_impl([2024], [0, 1, 20])
@@ -259,18 +259,18 @@ class TestGetPlayByPlayImpl:
 
     def test_network_error_handling(self) -> None:
         """Test that network errors return ErrorResponse."""
-        with patch("fast_nfl_mcp.data_fetcher.nfl.import_pbp_data") as mock_import:
+        with patch("fast_nfl_mcp.schema_manager.nfl.import_pbp_data") as mock_import:
             mock_import.side_effect = Exception("Network timeout")
 
             result = get_play_by_play_impl([2024])
 
             assert isinstance(result, ErrorResponse)
             assert result.success is False
-            assert "Failed to fetch" in result.error
+            assert "Error fetching" in result.error
 
     def test_empty_dataframe_returns_success(self) -> None:
         """Test that empty DataFrame returns success with warning."""
-        with patch("fast_nfl_mcp.data_fetcher.nfl.import_pbp_data") as mock_import:
+        with patch("fast_nfl_mcp.schema_manager.nfl.import_pbp_data") as mock_import:
             mock_import.return_value = pd.DataFrame()
 
             result = get_play_by_play_impl([2024])
@@ -282,7 +282,7 @@ class TestGetPlayByPlayImpl:
 
     def test_columns_in_metadata(self, sample_pbp_df: pd.DataFrame) -> None:
         """Test that column names are included in metadata."""
-        with patch("fast_nfl_mcp.data_fetcher.nfl.import_pbp_data") as mock_import:
+        with patch("fast_nfl_mcp.schema_manager.nfl.import_pbp_data") as mock_import:
             mock_import.return_value = sample_pbp_df
 
             result = get_play_by_play_impl([2024])
@@ -294,7 +294,7 @@ class TestGetPlayByPlayImpl:
 
     def test_data_types_converted(self, sample_pbp_df: pd.DataFrame) -> None:
         """Test that numpy types are converted to Python native types."""
-        with patch("fast_nfl_mcp.data_fetcher.nfl.import_pbp_data") as mock_import:
+        with patch("fast_nfl_mcp.schema_manager.nfl.import_pbp_data") as mock_import:
             mock_import.return_value = sample_pbp_df
 
             result = get_play_by_play_impl([2024])
@@ -308,7 +308,7 @@ class TestGetPlayByPlayImpl:
 
     def test_combined_warnings(self, sample_pbp_df: pd.DataFrame) -> None:
         """Test that multiple warnings are combined."""
-        with patch("fast_nfl_mcp.data_fetcher.nfl.import_pbp_data") as mock_import:
+        with patch("fast_nfl_mcp.schema_manager.nfl.import_pbp_data") as mock_import:
             mock_import.return_value = sample_pbp_df
 
             # Both invalid season and invalid week
