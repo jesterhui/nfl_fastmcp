@@ -563,6 +563,55 @@ class TestGetRostersImpl:
             assert result.warning is not None
             assert "No data matched" in result.warning
 
+    def test_all_invalid_teams_returns_empty(self) -> None:
+        """Test that all invalid teams returns empty result without fetching data."""
+        # This test verifies the fix: when teams are provided but all are invalid,
+        # we should return empty data, NOT fetch all teams
+        result = get_rosters_impl([2024], teams=["XXX", "YYY", "ZZZ"])
+
+        assert isinstance(result, SuccessResponse)
+        assert result.success is True
+        assert len(result.data) == 0
+        assert result.metadata.total_available == 0
+        assert result.warning is not None
+        assert "Invalid team abbreviations removed" in result.warning
+
+    def test_all_invalid_teams_does_not_fetch_data(
+        self, sample_rosters_df: pd.DataFrame
+    ) -> None:
+        """Test that all invalid teams does not call the data fetcher."""
+        with patch(
+            "fast_nfl_mcp.schema_manager.nfl.import_weekly_rosters"
+        ) as mock_import:
+            mock_import.return_value = sample_rosters_df
+
+            result = get_rosters_impl([2024], teams=["XXX"])
+
+            # The mock should NOT have been called because we short-circuit
+            mock_import.assert_not_called()
+            assert isinstance(result, SuccessResponse)
+            assert len(result.data) == 0
+
+    def test_some_valid_some_invalid_teams_fetches_valid_only(
+        self, sample_rosters_df: pd.DataFrame
+    ) -> None:
+        """Test that mixed valid/invalid teams only fetches valid teams."""
+        with patch(
+            "fast_nfl_mcp.schema_manager.nfl.import_weekly_rosters"
+        ) as mock_import:
+            mock_import.return_value = sample_rosters_df
+
+            result = get_rosters_impl([2024], teams=["KC", "XXX"])
+
+            assert isinstance(result, SuccessResponse)
+            assert result.success is True
+            # Should only return KC players (2 in sample data)
+            assert len(result.data) == 2
+            for row in result.data:
+                assert row["team"] == "KC"
+            assert result.warning is not None
+            assert "Invalid team abbreviations removed" in result.warning
+
     def test_pagination_with_offset(self, large_rosters_df: pd.DataFrame) -> None:
         """Test that offset skips rows for pagination."""
         with patch(

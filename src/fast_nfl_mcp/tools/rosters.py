@@ -215,6 +215,20 @@ def get_rosters_impl(
     if team_warning:
         warnings.append(team_warning)
 
+    # If teams were provided but all are invalid, return empty result
+    # rather than silently returning all teams
+    if teams and not valid_teams:
+        return create_success_response(
+            data=[],
+            total_available=0,
+            truncated=False,
+            warning=(
+                " ".join(warnings)
+                if warnings
+                else "No valid team abbreviations provided."
+            ),
+        )
+
     # Build filters (normalize user filters and add week/team filters)
     combined_filters = normalize_filters(filters)
     if valid_weeks:
