@@ -11,6 +11,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
+from fast_nfl_mcp.constants import DEFAULT_MAX_ROWS
 from fast_nfl_mcp.data_fetcher import DataFetcher
 from fast_nfl_mcp.models import ErrorResponse, SuccessResponse
 
@@ -19,9 +20,9 @@ class TestDataFetcherInit:
     """Tests for DataFetcher initialization."""
 
     def test_default_max_rows(self) -> None:
-        """Test that default MAX_ROWS is 100."""
+        """Test that default MAX_ROWS matches the constant."""
         fetcher = DataFetcher()
-        assert fetcher._max_rows == 100
+        assert fetcher._max_rows == DEFAULT_MAX_ROWS
 
     def test_custom_max_rows(self) -> None:
         """Test that custom max_rows can be set."""
@@ -29,8 +30,8 @@ class TestDataFetcherInit:
         assert fetcher._max_rows == 50
 
     def test_max_rows_class_constant(self) -> None:
-        """Test that MAX_ROWS class constant is 100."""
-        assert DataFetcher.MAX_ROWS == 100
+        """Test that MAX_ROWS class constant matches the constant."""
+        assert DataFetcher.MAX_ROWS == DEFAULT_MAX_ROWS
 
 
 class TestDataFetcherGetAvailableDatasets:
@@ -213,7 +214,7 @@ class TestDataFetcherFetchWithMocks:
             assert loader_called_with == [[2023]]
 
     def test_fetch_enforces_row_limit(self, large_dataframe: pd.DataFrame) -> None:
-        """Test that fetch enforces the 100-row limit."""
+        """Test that fetch enforces the 10-row limit."""
         with patch.dict(
             "fast_nfl_mcp.data_fetcher.DATASET_DEFINITIONS",
             {
@@ -230,8 +231,8 @@ class TestDataFetcherFetchWithMocks:
             response = fetcher.fetch("test_dataset")
 
             assert isinstance(response, SuccessResponse)
-            assert len(response.data) == 100
-            assert response.metadata.row_count == 100
+            assert len(response.data) == DEFAULT_MAX_ROWS
+            assert response.metadata.row_count == DEFAULT_MAX_ROWS
             assert response.metadata.total_available == 150
             assert response.metadata.truncated is True
             assert response.warning is not None
@@ -310,6 +311,120 @@ class TestDataFetcherFetchWithMocks:
 
             assert isinstance(response, SuccessResponse)
             assert loader_called_with == [None]
+
+    def test_fetch_with_offset(self, large_dataframe: pd.DataFrame) -> None:
+        """Test that offset skips the specified number of rows."""
+        with patch.dict(
+            "fast_nfl_mcp.data_fetcher.DATASET_DEFINITIONS",
+            {
+                "test_dataset": (
+                    lambda _: large_dataframe,
+                    "Large dataset",
+                    True,
+                    2024,
+                ),
+            },
+            clear=True,
+        ):
+            fetcher = DataFetcher()
+            response = fetcher.fetch("test_dataset", offset=10)
+
+            assert isinstance(response, SuccessResponse)
+            assert len(response.data) == DEFAULT_MAX_ROWS
+            # First row should be id=10 (skipped first 10)
+            assert response.data[0]["id"] == 10
+            assert response.metadata.total_available == 150
+
+    def test_fetch_with_limit(self, large_dataframe: pd.DataFrame) -> None:
+        """Test that limit overrides the default max_rows."""
+        with patch.dict(
+            "fast_nfl_mcp.data_fetcher.DATASET_DEFINITIONS",
+            {
+                "test_dataset": (
+                    lambda _: large_dataframe,
+                    "Large dataset",
+                    True,
+                    2024,
+                ),
+            },
+            clear=True,
+        ):
+            fetcher = DataFetcher()
+            response = fetcher.fetch("test_dataset", limit=5)
+
+            assert isinstance(response, SuccessResponse)
+            assert len(response.data) == 5
+            assert response.metadata.row_count == 5
+            assert response.metadata.total_available == 150
+            assert response.metadata.truncated is True
+
+    def test_fetch_with_offset_and_limit(self, large_dataframe: pd.DataFrame) -> None:
+        """Test pagination with both offset and limit."""
+        with patch.dict(
+            "fast_nfl_mcp.data_fetcher.DATASET_DEFINITIONS",
+            {
+                "test_dataset": (
+                    lambda _: large_dataframe,
+                    "Large dataset",
+                    True,
+                    2024,
+                ),
+            },
+            clear=True,
+        ):
+            fetcher = DataFetcher()
+            response = fetcher.fetch("test_dataset", offset=20, limit=15)
+
+            assert isinstance(response, SuccessResponse)
+            assert len(response.data) == 15
+            # First row should be id=20 (skipped first 20)
+            assert response.data[0]["id"] == 20
+            assert response.metadata.total_available == 150
+
+    def test_fetch_offset_beyond_data(self, large_dataframe: pd.DataFrame) -> None:
+        """Test that offset beyond data returns empty results."""
+        with patch.dict(
+            "fast_nfl_mcp.data_fetcher.DATASET_DEFINITIONS",
+            {
+                "test_dataset": (
+                    lambda _: large_dataframe,
+                    "Large dataset",
+                    True,
+                    2024,
+                ),
+            },
+            clear=True,
+        ):
+            fetcher = DataFetcher()
+            response = fetcher.fetch("test_dataset", offset=200)
+
+            assert isinstance(response, SuccessResponse)
+            assert len(response.data) == 0
+            assert response.metadata.total_available == 150
+            assert response.metadata.truncated is False
+
+    def test_fetch_warning_includes_next_offset(
+        self, large_dataframe: pd.DataFrame
+    ) -> None:
+        """Test that truncation warning includes next offset for pagination."""
+        with patch.dict(
+            "fast_nfl_mcp.data_fetcher.DATASET_DEFINITIONS",
+            {
+                "test_dataset": (
+                    lambda _: large_dataframe,
+                    "Large dataset",
+                    True,
+                    2024,
+                ),
+            },
+            clear=True,
+        ):
+            fetcher = DataFetcher()
+            response = fetcher.fetch("test_dataset", offset=10, limit=10)
+
+            assert isinstance(response, SuccessResponse)
+            assert response.warning is not None
+            assert "offset=20" in response.warning
 
 
 class TestDataFetcherErrorHandling:

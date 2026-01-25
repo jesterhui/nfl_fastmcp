@@ -10,6 +10,7 @@ from typing import Any
 
 import pandas as pd
 
+from fast_nfl_mcp.constants import DEFAULT_MAX_ROWS
 from fast_nfl_mcp.models import (
     ErrorResponse,
     SuccessResponse,
@@ -33,13 +34,14 @@ class DataFetcher:
     The DataFetcher wraps nfl_data_py function calls with:
     - Consistent error handling for network failures
     - Row limits to prevent excessive data responses
+    - Pagination support via offset parameter
     - Standardized response formatting using Pydantic models
 
     Attributes:
-        MAX_ROWS: Maximum number of rows to return (default 100).
+        MAX_ROWS: Maximum number of rows to return (default 10).
     """
 
-    MAX_ROWS: int = 100
+    MAX_ROWS: int = DEFAULT_MAX_ROWS
 
     def __init__(self, max_rows: int | None = None) -> None:
         """Initialize the DataFetcher.
@@ -137,8 +139,31 @@ class DataFetcher:
         columns: list[str] = [str(col) for col in df.columns]
         return cleaned_records, columns
 
+    def _apply_filters(
+        self, df: pd.DataFrame, filters: dict[str, list[Any]]
+    ) -> pd.DataFrame:
+        """Apply filters to a DataFrame.
+
+        Args:
+            df: The DataFrame to filter.
+            filters: Dict mapping column names to lists of acceptable values.
+
+        Returns:
+            Filtered DataFrame.
+        """
+        for column, values in filters.items():
+            if column in df.columns:
+                df = df[df[column].isin(values)]
+        return df
+
     def fetch(
-        self, dataset: str, params: dict[str, Any] | None = None
+        self,
+        dataset: str,
+        params: dict[str, Any] | None = None,
+        filters: dict[str, list[Any]] | None = None,
+        offset: int = 0,
+        limit: int | None = None,
+        columns: list[str] | None = None,
     ) -> SuccessResponse | ErrorResponse:
         """Fetch data from nfl_data_py with error handling and row limits.
 
@@ -147,6 +172,14 @@ class DataFetcher:
             params: Optional dictionary of parameters for the fetch.
                    For seasonal datasets, can include "seasons" as a list
                    or single integer.
+            filters: Optional dict mapping column names to lists of acceptable
+                    values. Filters are applied BEFORE row limit truncation.
+            offset: Number of rows to skip before returning results (for pagination).
+                   Defaults to 0.
+            limit: Maximum number of rows to return. If None, uses the instance
+                  max_rows setting.
+            columns: Optional list of column names to include in the output.
+                    If None, all columns are included.
 
         Returns:
             A SuccessResponse with data and metadata, or an ErrorResponse
@@ -155,10 +188,14 @@ class DataFetcher:
         Examples:
             >>> fetcher = DataFetcher()
             >>> response = fetcher.fetch("play_by_play", {"seasons": [2024]})
+            >>> response = fetcher.fetch("play_by_play", {"seasons": [2024]}, {"week": [1, 2]})
+            >>> response = fetcher.fetch("play_by_play", {"seasons": [2024]}, offset=10, limit=10)
             >>> response = fetcher.fetch("team_descriptions")
         """
         if params is None:
             params = {}
+        if filters is None:
+            filters = {}
 
         # Validate dataset name
         definition = self._get_dataset_loader(dataset)
@@ -193,16 +230,49 @@ class DataFetcher:
                     warning=f"No data found for {dataset} with the given parameters.",
                 )
 
-            # Get total count before truncation
+            # Apply filters before truncation
+            if filters:
+                df = self._apply_filters(df, filters)
+                if df.empty:
+                    return create_success_response(
+                        data=[],
+                        total_available=0,
+                        truncated=False,
+                        columns=[str(col) for col in df.columns],
+                        warning="No data matched the specified filters.",
+                    )
+
+            # Select specific columns if requested
+            if columns:
+                available_cols = set(df.columns)
+                valid_cols = [c for c in columns if c in available_cols]
+                invalid_cols = [c for c in columns if c not in available_cols]
+                if valid_cols:
+                    df = df[valid_cols]
+                if invalid_cols:
+                    logger.warning(f"Requested columns not found: {invalid_cols}")
+
+            # Get total count before pagination
             total_available = len(df)
-            truncated = total_available > self._max_rows
+
+            # Determine effective limit
+            effective_limit = limit if limit is not None else self._max_rows
+
+            # Apply offset first
+            if offset > 0:
+                df = df.iloc[offset:]
+                logger.info(f"Applied offset {offset} to {dataset}")
+
+            # Check if results will be truncated
+            rows_after_offset = len(df)
+            truncated = rows_after_offset > effective_limit
 
             # Apply row limit
             if truncated:
-                df = df.head(self._max_rows)
+                df = df.head(effective_limit)
                 logger.info(
-                    f"Truncated {dataset} from {total_available} "
-                    f"to {self._max_rows} rows"
+                    f"Truncated {dataset} from {rows_after_offset} "
+                    f"to {effective_limit} rows"
                 )
 
             # Convert to records
@@ -211,9 +281,10 @@ class DataFetcher:
             # Build warning message if truncated
             warning = None
             if truncated:
+                next_offset = offset + effective_limit
                 warning = (
-                    f"Results truncated from {total_available} to {self._max_rows} rows. "
-                    f"Use more specific filters to reduce the result set."
+                    f"Results truncated. Showing {effective_limit} of {total_available} total rows "
+                    f"(offset: {offset}). Use offset={next_offset} to get the next page."
                 )
 
             return create_success_response(
