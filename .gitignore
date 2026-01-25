@@ -1,4 +1,6 @@
 specs/*
+.claude/
+tasks/
 
 # Python
 __pycache__/
