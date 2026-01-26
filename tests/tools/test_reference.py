@@ -748,6 +748,46 @@ class TestLookupPlayer:
             assert "Showing first 10" in result.warning
             assert "more specific name" in result.warning
 
+    def test_matches_both_name_and_merge_name_columns(self) -> None:
+        """Test that search matches against both name and merge_name columns.
+
+        This handles cases where the user's search term might match the name
+        column but not merge_name (e.g., "T.J." vs "tj", "Jr." vs no suffix).
+        """
+        df = pd.DataFrame(
+            {
+                "gsis_id": ["00-0000001", "00-0000002"],
+                "name": ["T.J. Hockenson", "Odell Beckham Jr."],
+                "team": ["MIN", "MIA"],
+                "position": ["TE", "WR"],
+                # merge_name is normalized (no punctuation, no suffix)
+                "merge_name": ["tj hockenson", "odell beckham"],
+            }
+        )
+        with patch("fast_nfl_mcp.schema_manager.nfl.import_ids") as mock_import:
+            mock_import.return_value = df
+
+            # Search with "T.J." - should match via name column
+            result = lookup_player_impl("T.J.")
+            assert isinstance(result, SuccessResponse)
+            assert result.success is True
+            assert len(result.data) == 1
+            assert result.data[0]["name"] == "T.J. Hockenson"
+
+            # Search with "Jr." - should match via name column
+            result = lookup_player_impl("Jr.")
+            assert isinstance(result, SuccessResponse)
+            assert result.success is True
+            assert len(result.data) == 1
+            assert result.data[0]["name"] == "Odell Beckham Jr."
+
+            # Search with normalized form - should still match via merge_name
+            result = lookup_player_impl("tj hockenson")
+            assert isinstance(result, SuccessResponse)
+            assert result.success is True
+            assert len(result.data) == 1
+            assert result.data[0]["name"] == "T.J. Hockenson"
+
 
 class TestReferenceToolsIntegration:
     """Integration tests for reference data tools."""

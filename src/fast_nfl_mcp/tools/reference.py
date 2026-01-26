@@ -197,17 +197,24 @@ def lookup_player_impl(
                 warning="No player data available.",
             )
 
-        # Use merge_name for matching if available (it's already normalized/lowercase)
-        # Otherwise fall back to the name column
+        # Match against both merge_name AND name columns to handle cases where
+        # the user's search term might match one but not the other (e.g., "T.J."
+        # vs "tj", "Jr." vs normalized without suffix)
+        mask = pd.Series([False] * len(df), index=df.index)
+
         if "merge_name" in df.columns:
             # merge_name is already lowercase, so just check contains
-            mask = df["merge_name"].fillna("").str.contains(search_name, regex=False)
-        elif "name" in df.columns:
-            # Fall back to name column with case-insensitive matching
-            mask = (
-                df["name"].fillna("").str.lower().str.contains(search_name, regex=False)
+            mask = mask | df["merge_name"].fillna("").str.contains(
+                search_name, regex=False
             )
-        else:
+
+        if "name" in df.columns:
+            # Also check against name column with case-insensitive matching
+            mask = mask | df["name"].fillna("").str.lower().str.contains(
+                search_name, regex=False
+            )
+
+        if "merge_name" not in df.columns and "name" not in df.columns:
             return create_error_response(
                 error="Player name column not found in player_ids dataset."
             )
