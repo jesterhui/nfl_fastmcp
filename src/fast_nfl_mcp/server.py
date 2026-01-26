@@ -23,6 +23,7 @@ from fast_nfl_mcp.tools.reference import (
     get_officials_impl,
     get_player_ids_impl,
     get_team_descriptions_impl,
+    lookup_player_impl,
 )
 from fast_nfl_mcp.tools.rosters import get_rosters_impl
 from fast_nfl_mcp.tools.utilities import describe_dataset_impl, list_datasets_impl
@@ -250,8 +251,10 @@ def get_seasonal_stats(
         Field(
             description="List of column names to include in output (REQUIRED). "
             "Use describe_dataset('seasonal_stats') to see available columns. "
-            "Common useful columns: player_id, player_name, season, team, "
-            "passing_yards, passing_tds, rushing_yards, receiving_yards"
+            "Common useful columns: player_id, season, passing_yards, passing_tds, "
+            "rushing_yards, rushing_tds, receiving_yards, fantasy_points. "
+            "NOTE: This dataset only has player_id, not player_name or team. "
+            "To get player names, use weekly_stats or rosters to map player_id to names."
         ),
     ],
     filters: Annotated[
@@ -259,7 +262,7 @@ def get_seasonal_stats(
         Field(
             description="Filter on any column. Keys are column names, values are "
             "either a single value or list of acceptable values. "
-            'Example: {"team": "KC", "season": 2024}'
+            'Example: {"player_id": "00-0023459", "season": 2024}'
         ),
     ] = None,
     offset: Annotated[
@@ -285,12 +288,16 @@ def get_seasonal_stats(
     identifying statistical leaders.
 
     Key columns include:
-    - Player info: player_id, player_name, team, position
+    - Player info: player_id (NOTE: no player_name, team, or position in this dataset)
     - Season context: season
     - Passing: passing_yards, passing_tds, interceptions, completions, attempts
     - Rushing: rushing_yards, rushing_tds, carries
     - Receiving: receiving_yards, receiving_tds, receptions, targets
-    - Games: games, games_started
+    - Fantasy: fantasy_points, fantasy_points_ppr
+    - Games: games
+
+    To get player names, first look up the player in weekly_stats or rosters,
+    then use the player_id to query this dataset.
 
     Args:
         seasons: List of seasons (e.g., [2020, 2021, 2022]). Maximum 10 seasons allowed.
@@ -307,9 +314,9 @@ def get_seasonal_stats(
         to paginate through larger result sets.
 
     Examples:
-        Get career stats: get_seasonal_stats([2020, 2021, 2022, 2023, 2024], ["player_name", "passing_yards"])
-        Filter by team: get_seasonal_stats([2024], ["player_name", "rushing_yards"], filters={"team": "KC"})
-        Paginate: get_seasonal_stats([2024], ["player_name", "team"], offset=100, limit=50)
+        Get stats: get_seasonal_stats([2024], ["player_id", "passing_yards", "rushing_yards"])
+        Filter by player: get_seasonal_stats([2020, 2021], ["player_id", "fantasy_points"], filters={"player_id": "00-0023459"})
+        Paginate: get_seasonal_stats([2024], ["player_id", "rushing_tds"], offset=100, limit=50)
     """
     return get_seasonal_stats_impl(seasons, columns, filters, offset, limit)
 
@@ -447,6 +454,62 @@ def get_player_ids(
         Paginate: get_player_ids(offset=100, limit=50)
     """
     return get_player_ids_impl(offset=offset, limit=limit)
+
+
+@mcp.tool()
+def lookup_player(
+    name: Annotated[
+        str,
+        Field(
+            description="Player name to search for (case-insensitive, partial match "
+            "supported). Examples: 'Mahomes', 'Patrick Mahomes', 'jameis winston'"
+        ),
+    ],
+    limit: Annotated[
+        int | None,
+        Field(
+            description="Maximum number of results to return (default 10, max 100).",
+            ge=1,
+            le=100,
+        ),
+    ] = None,
+) -> SuccessResponse | ErrorResponse:
+    """Search for players by name and return their player_id (gsis_id).
+
+    This utility tool enables searching for players by name to find their gsis_id,
+    which can then be used with datasets that only contain player_id (like
+    seasonal_stats). Useful when you need to look up a player's statistics but
+    only know their name.
+
+    Supports case-insensitive partial matching, so searching for "mahomes" will
+    find "Patrick Mahomes", and "winston" will find "Jameis Winston".
+
+    Returns:
+    - gsis_id: The player_id used in other datasets (e.g., seasonal_stats)
+    - name: Full player name
+    - team: Current team abbreviation
+    - position: Player position
+    - merge_name: Lowercase normalized name for matching
+
+    Args:
+        name: Player name to search for (case-insensitive, partial match supported).
+        limit: Maximum number of results to return (default 10, max 100).
+
+    Returns:
+        Matching players with their gsis_id and metadata. Use the gsis_id in
+        other dataset queries that require player_id.
+
+    Examples:
+        Find a player: lookup_player("Mahomes")
+        Case-insensitive: lookup_player("jameis winston")
+        Partial match: lookup_player("Hill") -> finds Tyreek Hill, etc.
+
+    Workflow:
+        1. lookup_player("Jameis Winston") -> get gsis_id "00-0031355"
+        2. get_seasonal_stats([2024], ["player_id", "passing_yards"],
+           filters={"player_id": "00-0031355"})
+    """
+    return lookup_player_impl(name=name, limit=limit)
 
 
 @mcp.tool()
