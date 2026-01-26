@@ -1,7 +1,7 @@
 """Tests for the reference data retrieval tools.
 
 This module tests the get_player_ids, get_team_descriptions, get_officials,
-and get_contracts tools using mocked data.
+get_contracts, and lookup_player tools using mocked data.
 """
 
 from unittest.mock import patch
@@ -12,10 +12,14 @@ import pytest
 from fast_nfl_mcp.constants import DEFAULT_MAX_ROWS
 from fast_nfl_mcp.models import ErrorResponse, SuccessResponse
 from fast_nfl_mcp.tools.reference import (
+    LOOKUP_PLAYER_COLUMNS,
+    LOOKUP_PLAYER_DEFAULT_LIMIT,
+    LOOKUP_PLAYER_MAX_LIMIT,
     get_contracts_impl,
     get_officials_impl,
     get_player_ids_impl,
     get_team_descriptions_impl,
+    lookup_player_impl,
 )
 
 
@@ -468,6 +472,321 @@ class TestGetContracts:
             assert result.metadata.columns is not None
             assert "player" in result.metadata.columns
             assert "value" in result.metadata.columns
+
+
+class TestLookupPlayer:
+    """Tests for the lookup_player tool."""
+
+    @pytest.fixture
+    def sample_player_ids_df(self) -> pd.DataFrame:
+        """Create a sample player IDs DataFrame with merge_name column."""
+        return pd.DataFrame(
+            {
+                "gsis_id": ["00-0033873", "00-0036945", "00-0036389", "00-0031355"],
+                "name": [
+                    "Patrick Mahomes",
+                    "Josh Allen",
+                    "Brock Purdy",
+                    "Jameis Winston",
+                ],
+                "team": ["KC", "BUF", "SF", "CLE"],
+                "position": ["QB", "QB", "QB", "QB"],
+                "merge_name": [
+                    "patrick mahomes",
+                    "josh allen",
+                    "brock purdy",
+                    "jameis winston",
+                ],
+                "espn_id": [3139477, 3918298, 4361741, 2969939],
+            }
+        )
+
+    @pytest.fixture
+    def large_player_ids_df(self) -> pd.DataFrame:
+        """Create a large player IDs DataFrame for limit testing."""
+        return pd.DataFrame(
+            {
+                "gsis_id": [f"00-00{i:05d}" for i in range(150)],
+                "name": [f"Player Smith {i}" for i in range(150)],
+                "team": ["KC"] * 150,
+                "position": ["WR"] * 150,
+                "merge_name": [f"player smith {i}" for i in range(150)],
+            }
+        )
+
+    def test_successful_exact_name_match(
+        self, sample_player_ids_df: pd.DataFrame
+    ) -> None:
+        """Test successful lookup with exact name match."""
+        with patch("fast_nfl_mcp.schema_manager.nfl.import_ids") as mock_import:
+            mock_import.return_value = sample_player_ids_df
+
+            result = lookup_player_impl("Patrick Mahomes")
+
+            assert isinstance(result, SuccessResponse)
+            assert result.success is True
+            assert len(result.data) == 1
+            assert result.data[0]["name"] == "Patrick Mahomes"
+            assert result.data[0]["gsis_id"] == "00-0033873"
+            assert result.data[0]["team"] == "KC"
+            assert result.data[0]["position"] == "QB"
+
+    def test_partial_name_match(self, sample_player_ids_df: pd.DataFrame) -> None:
+        """Test partial name matching works correctly."""
+        with patch("fast_nfl_mcp.schema_manager.nfl.import_ids") as mock_import:
+            mock_import.return_value = sample_player_ids_df
+
+            result = lookup_player_impl("Mahomes")
+
+            assert isinstance(result, SuccessResponse)
+            assert result.success is True
+            assert len(result.data) == 1
+            assert result.data[0]["name"] == "Patrick Mahomes"
+
+    def test_case_insensitive_matching(
+        self, sample_player_ids_df: pd.DataFrame
+    ) -> None:
+        """Test case-insensitive matching works correctly."""
+        with patch("fast_nfl_mcp.schema_manager.nfl.import_ids") as mock_import:
+            mock_import.return_value = sample_player_ids_df
+
+            # Test uppercase
+            result = lookup_player_impl("JAMEIS WINSTON")
+            assert isinstance(result, SuccessResponse)
+            assert len(result.data) == 1
+            assert result.data[0]["name"] == "Jameis Winston"
+
+            # Test lowercase
+            result = lookup_player_impl("jameis winston")
+            assert isinstance(result, SuccessResponse)
+            assert len(result.data) == 1
+            assert result.data[0]["name"] == "Jameis Winston"
+
+            # Test mixed case
+            result = lookup_player_impl("JaMeIs WiNsToN")
+            assert isinstance(result, SuccessResponse)
+            assert len(result.data) == 1
+
+    def test_multiple_matches(self, sample_player_ids_df: pd.DataFrame) -> None:
+        """Test that multiple matches are returned when name matches several players."""
+        # Add players with similar names
+        df = pd.DataFrame(
+            {
+                "gsis_id": ["00-0000001", "00-0000002", "00-0000003"],
+                "name": ["John Smith", "Johnny Smith", "John Smithson"],
+                "team": ["KC", "SF", "BUF"],
+                "position": ["QB", "WR", "RB"],
+                "merge_name": ["john smith", "johnny smith", "john smithson"],
+            }
+        )
+        with patch("fast_nfl_mcp.schema_manager.nfl.import_ids") as mock_import:
+            mock_import.return_value = df
+
+            result = lookup_player_impl("Smith")
+
+            assert isinstance(result, SuccessResponse)
+            assert result.success is True
+            assert len(result.data) == 3
+            assert result.metadata.total_available == 3
+
+    def test_default_limit(self, large_player_ids_df: pd.DataFrame) -> None:
+        """Test that default limit of 10 is applied."""
+        with patch("fast_nfl_mcp.schema_manager.nfl.import_ids") as mock_import:
+            mock_import.return_value = large_player_ids_df
+
+            result = lookup_player_impl("Smith")
+
+            assert isinstance(result, SuccessResponse)
+            assert result.success is True
+            assert len(result.data) == LOOKUP_PLAYER_DEFAULT_LIMIT
+            assert result.metadata.truncated is True
+            assert result.metadata.total_available == 150
+
+    def test_custom_limit(self, large_player_ids_df: pd.DataFrame) -> None:
+        """Test that custom limit is respected."""
+        with patch("fast_nfl_mcp.schema_manager.nfl.import_ids") as mock_import:
+            mock_import.return_value = large_player_ids_df
+
+            result = lookup_player_impl("Smith", limit=5)
+
+            assert isinstance(result, SuccessResponse)
+            assert result.success is True
+            assert len(result.data) == 5
+            assert result.metadata.row_count == 5
+
+    def test_max_limit_enforced(self, large_player_ids_df: pd.DataFrame) -> None:
+        """Test that limit is capped at LOOKUP_PLAYER_MAX_LIMIT."""
+        with patch("fast_nfl_mcp.schema_manager.nfl.import_ids") as mock_import:
+            mock_import.return_value = large_player_ids_df
+
+            result = lookup_player_impl("Smith", limit=200)
+
+            assert isinstance(result, SuccessResponse)
+            assert result.success is True
+            assert len(result.data) == LOOKUP_PLAYER_MAX_LIMIT
+
+    def test_no_matches_returns_warning(
+        self, sample_player_ids_df: pd.DataFrame
+    ) -> None:
+        """Test that no matches returns success with warning."""
+        with patch("fast_nfl_mcp.schema_manager.nfl.import_ids") as mock_import:
+            mock_import.return_value = sample_player_ids_df
+
+            result = lookup_player_impl("NonexistentPlayer")
+
+            assert isinstance(result, SuccessResponse)
+            assert result.success is True
+            assert len(result.data) == 0
+            assert result.warning is not None
+            assert "No players found" in result.warning
+
+    def test_empty_name_returns_warning(self) -> None:
+        """Test that empty name returns success with warning."""
+        result = lookup_player_impl("")
+
+        assert isinstance(result, SuccessResponse)
+        assert result.success is True
+        assert len(result.data) == 0
+        assert result.warning is not None
+        assert "Empty search name" in result.warning
+
+    def test_whitespace_only_name_returns_warning(self) -> None:
+        """Test that whitespace-only name returns success with warning."""
+        result = lookup_player_impl("   ")
+
+        assert isinstance(result, SuccessResponse)
+        assert result.success is True
+        assert len(result.data) == 0
+        assert result.warning is not None
+        assert "Empty search name" in result.warning
+
+    def test_correct_columns_returned(self, sample_player_ids_df: pd.DataFrame) -> None:
+        """Test that only the specified columns are returned."""
+        with patch("fast_nfl_mcp.schema_manager.nfl.import_ids") as mock_import:
+            mock_import.return_value = sample_player_ids_df
+
+            result = lookup_player_impl("Mahomes")
+
+            assert isinstance(result, SuccessResponse)
+            assert result.success is True
+            assert len(result.data) == 1
+            # Check that only the expected columns are present
+            returned_cols = set(result.data[0].keys())
+            expected_cols = set(LOOKUP_PLAYER_COLUMNS)
+            assert returned_cols == expected_cols
+            # espn_id should NOT be in the result
+            assert "espn_id" not in returned_cols
+
+    def test_columns_in_metadata(self, sample_player_ids_df: pd.DataFrame) -> None:
+        """Test that column names are included in metadata."""
+        with patch("fast_nfl_mcp.schema_manager.nfl.import_ids") as mock_import:
+            mock_import.return_value = sample_player_ids_df
+
+            result = lookup_player_impl("Mahomes")
+
+            assert isinstance(result, SuccessResponse)
+            assert result.metadata.columns is not None
+            for col in LOOKUP_PLAYER_COLUMNS:
+                assert col in result.metadata.columns
+
+    def test_network_error_handling(self) -> None:
+        """Test that network errors return ErrorResponse."""
+        with patch("fast_nfl_mcp.schema_manager.nfl.import_ids") as mock_import:
+            mock_import.side_effect = Exception("Network timeout")
+
+            result = lookup_player_impl("Mahomes")
+
+            assert isinstance(result, ErrorResponse)
+            assert result.success is False
+            assert "Error looking up player" in result.error
+
+    def test_empty_dataframe_returns_warning(self) -> None:
+        """Test that empty DataFrame returns success with warning."""
+        with patch("fast_nfl_mcp.schema_manager.nfl.import_ids") as mock_import:
+            mock_import.return_value = pd.DataFrame()
+
+            result = lookup_player_impl("Mahomes")
+
+            assert isinstance(result, SuccessResponse)
+            assert result.success is True
+            assert len(result.data) == 0
+            assert result.warning is not None
+            assert "No player data available" in result.warning
+
+    def test_fallback_to_name_column(self) -> None:
+        """Test fallback to name column when merge_name is not available."""
+        df = pd.DataFrame(
+            {
+                "gsis_id": ["00-0000001"],
+                "name": ["Patrick Mahomes"],
+                "team": ["KC"],
+                "position": ["QB"],
+            }
+        )
+        with patch("fast_nfl_mcp.schema_manager.nfl.import_ids") as mock_import:
+            mock_import.return_value = df
+
+            result = lookup_player_impl("mahomes")
+
+            assert isinstance(result, SuccessResponse)
+            assert result.success is True
+            assert len(result.data) == 1
+            assert result.data[0]["name"] == "Patrick Mahomes"
+
+    def test_truncation_warning_message(
+        self, large_player_ids_df: pd.DataFrame
+    ) -> None:
+        """Test that truncation warning message is informative."""
+        with patch("fast_nfl_mcp.schema_manager.nfl.import_ids") as mock_import:
+            mock_import.return_value = large_player_ids_df
+
+            result = lookup_player_impl("Smith")
+
+            assert isinstance(result, SuccessResponse)
+            assert result.warning is not None
+            assert "Found 150 players" in result.warning
+            assert "Showing first 10" in result.warning
+            assert "more specific name" in result.warning
+
+    def test_matches_both_name_and_merge_name_columns(self) -> None:
+        """Test that search matches against both name and merge_name columns.
+
+        This handles cases where the user's search term might match the name
+        column but not merge_name (e.g., "T.J." vs "tj", "Jr." vs no suffix).
+        """
+        df = pd.DataFrame(
+            {
+                "gsis_id": ["00-0000001", "00-0000002"],
+                "name": ["T.J. Hockenson", "Odell Beckham Jr."],
+                "team": ["MIN", "MIA"],
+                "position": ["TE", "WR"],
+                # merge_name is normalized (no punctuation, no suffix)
+                "merge_name": ["tj hockenson", "odell beckham"],
+            }
+        )
+        with patch("fast_nfl_mcp.schema_manager.nfl.import_ids") as mock_import:
+            mock_import.return_value = df
+
+            # Search with "T.J." - should match via name column
+            result = lookup_player_impl("T.J.")
+            assert isinstance(result, SuccessResponse)
+            assert result.success is True
+            assert len(result.data) == 1
+            assert result.data[0]["name"] == "T.J. Hockenson"
+
+            # Search with "Jr." - should match via name column
+            result = lookup_player_impl("Jr.")
+            assert isinstance(result, SuccessResponse)
+            assert result.success is True
+            assert len(result.data) == 1
+            assert result.data[0]["name"] == "Odell Beckham Jr."
+
+            # Search with normalized form - should still match via merge_name
+            result = lookup_player_impl("tj hockenson")
+            assert isinstance(result, SuccessResponse)
+            assert result.success is True
+            assert len(result.data) == 1
+            assert result.data[0]["name"] == "T.J. Hockenson"
 
 
 class TestReferenceToolsIntegration:
