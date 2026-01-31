@@ -16,6 +16,7 @@ Note: These tests make real network calls and may take several minutes.
 """
 
 import json
+import select
 import subprocess
 import time
 import uuid
@@ -100,22 +101,41 @@ def docker_compose_up() -> Generator[None, None, None]:
     )
 
 
-def read_json_line(stdout: Any) -> dict[str, Any]:
+def read_json_line(stdout: Any, timeout: float = 60.0) -> dict[str, Any]:
     """Read lines until we get a valid JSON response.
 
     The server may print log messages to stdout which we need to skip.
+    Uses select() for timeout-based reading to prevent indefinite hangs.
 
     Args:
         stdout: The stdout stream to read from
+        timeout: Maximum seconds to wait for a response (default 60)
 
     Returns:
         The parsed JSON response
 
     Raises:
-        RuntimeError: If no valid JSON is found within reasonable attempts
+        RuntimeError: If no valid JSON is found within timeout or max attempts
+        TimeoutError: If reading times out
     """
     max_attempts = 50
+    start_time = time.time()
+
     for _ in range(max_attempts):
+        # Check if we've exceeded the timeout
+        elapsed = time.time() - start_time
+        remaining = timeout - elapsed
+        if remaining <= 0:
+            raise TimeoutError(f"Timed out after {timeout}s waiting for JSON response")
+
+        # Use select to wait for data with timeout (Unix-only, but Docker tests run on Unix)
+        fd = stdout.fileno()
+        ready, _, _ = select.select([fd], [], [], min(remaining, 5.0))
+
+        if not ready:
+            # No data available yet, continue waiting
+            continue
+
         line = stdout.readline()
         if not line:
             raise RuntimeError("EOF reached without valid JSON response")
@@ -128,6 +148,7 @@ def read_json_line(stdout: Any) -> dict[str, Any]:
         except json.JSONDecodeError:
             # Skip non-JSON lines (log messages, etc.)
             continue
+
     raise RuntimeError("No valid JSON response found after max attempts")
 
 
@@ -138,6 +159,8 @@ def create_mcp_session() -> tuple[subprocess.Popen[str], str]:
         Tuple of (process, session_id) for the running MCP server.
     """
     # Start the MCP server in stdio mode inside Docker
+    # Redirect stderr to devnull to prevent pipe buffer backpressure
+    # which can cause the subprocess to hang if stderr buffer fills up
     proc = subprocess.Popen(
         [
             "docker",
@@ -149,7 +172,7 @@ def create_mcp_session() -> tuple[subprocess.Popen[str], str]:
         ],
         stdin=subprocess.PIPE,
         stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
+        stderr=subprocess.DEVNULL,  # Prevent backpressure from unread stderr
         text=True,
     )
 
