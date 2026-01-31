@@ -17,6 +17,13 @@ MAX_ROSTERS_SEASONS: int = 5
 MAX_SEASONS_WEEKLY: int = 5
 MAX_SEASONS_SEASONAL: int = 10
 
+# Maximum seasons for misc tools
+MAX_SEASONS_SNAP_COUNTS: int = 5
+MAX_SEASONS_INJURIES: int = 5
+MAX_SEASONS_DEPTH_CHARTS: int = 5
+MAX_SEASONS_COMBINE: int = 10
+MAX_SEASONS_QBR: int = 10
+
 # Valid week range for NFL regular season
 MIN_WEEK: int = 1
 MAX_WEEK: int = 18
