@@ -14,12 +14,10 @@ from pydantic import Field
 
 from fast_nfl_mcp.models import ErrorResponse, SuccessResponse
 from fast_nfl_mcp.schema_manager import SchemaManager
-from fast_nfl_mcp.tools.misc import (
-    get_combine_data_impl,
-    get_depth_charts_impl,
-    get_injuries_impl,
-    get_qbr_impl,
-    get_snap_counts_impl,
+from fast_nfl_mcp.tools.next_gen import (
+    get_ngs_passing_impl,
+    get_ngs_receiving_impl,
+    get_ngs_rushing_impl,
 )
 from fast_nfl_mcp.tools.play_by_play import get_play_by_play_impl
 from fast_nfl_mcp.tools.player_stats import (
@@ -34,6 +32,7 @@ from fast_nfl_mcp.tools.reference import (
     lookup_player_impl,
 )
 from fast_nfl_mcp.tools.rosters import get_rosters_impl
+from fast_nfl_mcp.tools.schedules import get_schedules_impl
 from fast_nfl_mcp.tools.utilities import describe_dataset_impl, list_datasets_impl
 
 
@@ -660,23 +659,22 @@ def get_contracts(
 
 
 @mcp.tool()
-def get_snap_counts(
+def get_draft_picks(
     seasons: list[int],
     columns: Annotated[
-        list[str],
+        list[str] | None,
         Field(
-            description="List of column names to include in output (REQUIRED). "
-            "Use describe_dataset('snap_counts') to see available columns. "
-            "Common useful columns: player, team, position, offense_snaps, "
-            "offense_pct, defense_snaps, defense_pct, st_snaps, st_pct"
+            description="List of column names to include in output (optional). "
+            "Use describe_dataset('draft_picks') to see available columns. "
+            "Common useful columns: season, round, pick, team, pfr_player_name, position"
         ),
-    ],
+    ] = None,
     filters: Annotated[
         dict[str, Any] | None,
         Field(
             description="Filter on any column. Keys are column names, values are "
             "either a single value or list of acceptable values. "
-            'Example: {"team": "KC", "position": "WR"}'
+            'Example: {"team": "KC", "round": [1, 2]}'
         ),
     ] = None,
     offset: Annotated[
@@ -696,62 +694,62 @@ def get_snap_counts(
         ),
     ] = None,
 ) -> SuccessResponse | ErrorResponse:
-    """Get NFL player snap count data.
+    """Get historical NFL draft picks data.
 
-    Retrieves snap participation data showing how many snaps each player
-    participated in for offense, defense, and special teams.
+    Retrieves draft pick information for the specified seasons, including
+    player selection details, team information, and draft positions.
 
     Key columns include:
-    - player: Player name
-    - team: Team abbreviation
+    - season: Draft year
+    - round: Draft round (1-7)
+    - pick: Overall pick number
+    - team: Team that made the selection
+    - pfr_player_name: Player name
     - position: Player position
-    - week: Week number
-    - offense_snaps: Number of offensive snaps
-    - offense_pct: Percentage of offensive snaps played
-    - defense_snaps: Number of defensive snaps
-    - defense_pct: Percentage of defensive snaps played
-    - st_snaps: Special teams snaps
-    - st_pct: Percentage of special teams snaps
+    - age: Player age at draft time
+    - college: College attended
 
     Args:
-        seasons: List of seasons (e.g., [2023, 2024]). Maximum 5 seasons allowed.
-        columns: List of column names to include (REQUIRED to manage response size).
+        seasons: List of seasons (e.g., [2020, 2021, 2022]). Maximum 20 seasons allowed.
+                 Draft data is available from 1999 onwards.
+        columns: List of column names to include in output (optional).
         filters: Optional dict to filter on any column. Keys are column names,
                  values can be a single value or list of acceptable values.
-                 Use describe_dataset("snap_counts") to see available columns.
+                 Use describe_dataset("draft_picks") to see available columns.
         offset: Number of rows to skip for pagination (default 0).
         limit: Maximum number of rows to return (default 100, max 100).
 
     Returns:
-        Snap count data as JSON with up to 100 rows by default. Use offset and limit
+        Draft picks data as JSON with up to 100 rows by default. Use offset and limit
         to paginate through larger result sets.
 
     Examples:
-        Get snap data: get_snap_counts([2024], ["player", "team", "offense_pct"])
-        Filter by team: get_snap_counts([2024], ["player", "offense_snaps"], filters={"team": "KC"})
-        Paginate: get_snap_counts([2024], ["player", "team"], offset=100, limit=50)
+        Get draft picks: get_draft_picks([2024])
+        Filter by team: get_draft_picks([2024], filters={"team": "KC"})
+        First round only: get_draft_picks([2024], filters={"round": 1})
+        Paginate: get_draft_picks([2024], offset=100, limit=50)
     """
-    return get_snap_counts_impl(seasons, columns, filters, offset, limit)
+    return get_draft_picks_impl(seasons, columns, filters, offset, limit)
 
 
 @mcp.tool()
-def get_injuries(
+def get_schedules(
     seasons: list[int],
     columns: Annotated[
-        list[str],
+        list[str] | None,
         Field(
-            description="List of column names to include in output (REQUIRED). "
-            "Use describe_dataset('injuries') to see available columns. "
-            "Common useful columns: player, team, position, report_primary_injury, "
-            "report_secondary_injury, report_status, practice_status"
+            description="List of column names to include in output (optional). "
+            "Use describe_dataset('schedules') to see available columns. "
+            "Common useful columns: game_id, season, week, home_team, away_team, "
+            "home_score, away_score, gameday"
         ),
-    ],
+    ] = None,
     filters: Annotated[
         dict[str, Any] | None,
         Field(
             description="Filter on any column. Keys are column names, values are "
             "either a single value or list of acceptable values. "
-            'Example: {"team": "KC", "report_status": "Out"}'
+            'Example: {"home_team": "KC", "week": [1, 2, 3]}'
         ),
     ] = None,
     offset: Annotated[
@@ -771,271 +769,42 @@ def get_injuries(
         ),
     ] = None,
 ) -> SuccessResponse | ErrorResponse:
-    """Get NFL injury report data.
+    """Get NFL game schedules and results.
 
-    Retrieves injury reports showing player injuries, practice participation,
-    and game status designations.
+    Retrieves game schedule information for the specified seasons, including
+    matchups, dates, scores, and game outcomes.
 
     Key columns include:
-    - player: Player name
-    - team: Team abbreviation
-    - position: Player position
+    - game_id: Unique game identifier
+    - season: Season year
     - week: Week number
-    - report_primary_injury: Primary injury type
-    - report_secondary_injury: Secondary injury (if applicable)
-    - report_status: Game status (Out, Doubtful, Questionable, Probable)
-    - practice_status: Practice participation (DNP, Limited, Full)
-
-    Args:
-        seasons: List of seasons (e.g., [2023, 2024]). Maximum 5 seasons allowed.
-        columns: List of column names to include (REQUIRED to manage response size).
-        filters: Optional dict to filter on any column. Keys are column names,
-                 values can be a single value or list of acceptable values.
-                 Use describe_dataset("injuries") to see available columns.
-        offset: Number of rows to skip for pagination (default 0).
-        limit: Maximum number of rows to return (default 100, max 100).
-
-    Returns:
-        Injury report data as JSON with up to 100 rows by default. Use offset and limit
-        to paginate through larger result sets.
-
-    Examples:
-        Get injury data: get_injuries([2024], ["player", "team", "report_status"])
-        Filter by team: get_injuries([2024], ["player", "report_primary_injury"], filters={"team": "KC"})
-        Filter by status: get_injuries([2024], ["player", "team"], filters={"report_status": "Out"})
-        Paginate: get_injuries([2024], ["player", "team"], offset=100, limit=50)
-    """
-    return get_injuries_impl(seasons, columns, filters, offset, limit)
-
-
-@mcp.tool()
-def get_depth_charts(
-    seasons: list[int],
-    columns: Annotated[
-        list[str],
-        Field(
-            description="List of column names to include in output (REQUIRED). "
-            "Use describe_dataset('depth_charts') to see available columns. "
-            "Common useful columns: club_code, full_name, position, "
-            "depth_team, depth_position"
-        ),
-    ],
-    filters: Annotated[
-        dict[str, Any] | None,
-        Field(
-            description="Filter on any column. Keys are column names, values are "
-            "either a single value or list of acceptable values. "
-            'Example: {"club_code": "KC", "position": "QB"}'
-        ),
-    ] = None,
-    offset: Annotated[
-        int,
-        Field(
-            description="Number of rows to skip for pagination. Use with limit to "
-            "page through results.",
-            ge=0,
-        ),
-    ] = 0,
-    limit: Annotated[
-        int | None,
-        Field(
-            description="Maximum number of rows to return (default 100, max 100).",
-            ge=1,
-            le=100,
-        ),
-    ] = None,
-) -> SuccessResponse | ErrorResponse:
-    """Get NFL team depth chart data.
-
-    Retrieves depth chart information showing player rankings at each position
-    for all NFL teams.
-
-    Key columns include:
-    - club_code: Team abbreviation
-    - full_name: Player full name
-    - position: Position code
-    - depth_team: Offense/Defense/Special Teams
-    - depth_position: Position on depth chart
-    - week: Week number
-
-    Args:
-        seasons: List of seasons (e.g., [2023, 2024]). Maximum 5 seasons allowed.
-        columns: List of column names to include (REQUIRED to manage response size).
-        filters: Optional dict to filter on any column. Keys are column names,
-                 values can be a single value or list of acceptable values.
-                 Use describe_dataset("depth_charts") to see available columns.
-        offset: Number of rows to skip for pagination (default 0).
-        limit: Maximum number of rows to return (default 100, max 100).
-
-    Returns:
-        Depth chart data as JSON with up to 100 rows by default. Use offset and limit
-        to paginate through larger result sets.
-
-    Examples:
-        Get depth charts: get_depth_charts([2024], ["full_name", "club_code", "position"])
-        Filter by team: get_depth_charts([2024], ["full_name", "position"], filters={"club_code": "KC"})
-        Filter by position: get_depth_charts([2024], ["full_name", "club_code"], filters={"position": "QB"})
-        Paginate: get_depth_charts([2024], ["full_name", "club_code"], offset=100, limit=50)
-    """
-    return get_depth_charts_impl(seasons, columns, filters, offset, limit)
-
-
-@mcp.tool()
-def get_combine_data(
-    seasons: list[int],
-    columns: Annotated[
-        list[str],
-        Field(
-            description="List of column names to include in output (REQUIRED). "
-            "Use describe_dataset('combine_data') to see available columns. "
-            "Common useful columns: player_name, pos, school, ht, wt, "
-            "forty, vertical, broad_jump, cone, shuttle, bench"
-        ),
-    ],
-    filters: Annotated[
-        dict[str, Any] | None,
-        Field(
-            description="Filter on any column. Keys are column names, values are "
-            "either a single value or list of acceptable values. "
-            'Example: {"pos": "WR", "school": "Alabama"}'
-        ),
-    ] = None,
-    offset: Annotated[
-        int,
-        Field(
-            description="Number of rows to skip for pagination. Use with limit to "
-            "page through results.",
-            ge=0,
-        ),
-    ] = 0,
-    limit: Annotated[
-        int | None,
-        Field(
-            description="Maximum number of rows to return (default 100, max 100).",
-            ge=1,
-            le=100,
-        ),
-    ] = None,
-) -> SuccessResponse | ErrorResponse:
-    """Get NFL Scouting Combine data.
-
-    Retrieves NFL Combine results including player measurements and
-    athletic testing results from the annual scouting combine.
-
-    Key columns include:
-    - player_name: Player name
-    - pos: Position
-    - school: College
-    - ht: Height
-    - wt: Weight
-    - forty: 40-yard dash time
-    - vertical: Vertical jump (inches)
-    - broad_jump: Broad jump (inches)
-    - cone: 3-cone drill time
-    - shuttle: 20-yard shuttle time
-    - bench: Bench press reps (225 lbs)
+    - gameday: Date of the game
+    - home_team: Home team abbreviation
+    - away_team: Away team abbreviation
+    - home_score: Home team final score
+    - away_score: Away team final score
 
     Args:
         seasons: List of seasons (e.g., [2020, 2021, 2022]). Maximum 10 seasons allowed.
-        columns: List of column names to include (REQUIRED to manage response size).
+                 Schedule data is available from 1999 onwards.
+        columns: List of column names to include in output (optional).
         filters: Optional dict to filter on any column. Keys are column names,
                  values can be a single value or list of acceptable values.
-                 Use describe_dataset("combine_data") to see available columns.
+                 Use describe_dataset("schedules") to see available columns.
         offset: Number of rows to skip for pagination (default 0).
         limit: Maximum number of rows to return (default 100, max 100).
 
     Returns:
-        Combine data as JSON with up to 100 rows by default. Use offset and limit
+        Schedule data as JSON with up to 100 rows by default. Use offset and limit
         to paginate through larger result sets.
 
     Examples:
-        Get combine data: get_combine_data([2024], ["player_name", "pos", "forty"])
-        Filter by position: get_combine_data([2024], ["player_name", "forty"], filters={"pos": "WR"})
-        Filter by school: get_combine_data([2024], ["player_name", "pos"], filters={"school": "Alabama"})
-        Paginate: get_combine_data([2024], ["player_name", "pos"], offset=100, limit=50)
+        Get schedules: get_schedules([2024])
+        Filter by team: get_schedules([2024], filters={"home_team": "KC"})
+        Filter by week: get_schedules([2024], filters={"week": [1, 2]})
+        Paginate: get_schedules([2024], offset=100, limit=50)
     """
-    return get_combine_data_impl(seasons, columns, filters, offset, limit)
-
-
-@mcp.tool()
-def get_qbr(
-    seasons: list[int],
-    columns: Annotated[
-        list[str],
-        Field(
-            description="List of column names to include in output (REQUIRED). "
-            "Use describe_dataset('qbr') to see available columns. "
-            "Common useful columns: player_name, team, qbr_total, pts_added, "
-            "pass_epa, run_epa, penalty_epa, total_epa"
-        ),
-    ],
-    filters: Annotated[
-        dict[str, Any] | None,
-        Field(
-            description="Filter on any column. Keys are column names, values are "
-            "either a single value or list of acceptable values. "
-            'Example: {"team": "KC", "season_type": "Regular"}'
-        ),
-    ] = None,
-    offset: Annotated[
-        int,
-        Field(
-            description="Number of rows to skip for pagination. Use with limit to "
-            "page through results.",
-            ge=0,
-        ),
-    ] = 0,
-    limit: Annotated[
-        int | None,
-        Field(
-            description="Maximum number of rows to return (default 100, max 100).",
-            ge=1,
-            le=100,
-        ),
-    ] = None,
-) -> SuccessResponse | ErrorResponse:
-    """Get ESPN QBR (Total Quarterback Rating) data.
-
-    Retrieves ESPN's proprietary Total QBR metric, which is a comprehensive
-    quarterback rating that accounts for all aspects of quarterback play.
-
-    QBR (Total Quarterback Rating) measures a quarterback's contribution to
-    their team's success on a 0-100 scale, accounting for:
-    - Passing performance (including EPA)
-    - Rushing contribution
-    - Sacks and fumbles
-    - Situational value (clutch plays weighted more)
-
-    Note: QBR data is available from 2006 onwards.
-
-    Key columns include:
-    - player_name: Quarterback name
-    - team: Team abbreviation
-    - qbr_total: Total QBR (0-100 scale)
-    - pts_added: Points added above average
-    - pass_epa: Passing EPA (Expected Points Added)
-    - run_epa: Rushing EPA
-    - total_epa: Combined EPA
-
-    Args:
-        seasons: List of seasons (e.g., [2020, 2021, 2022]). Maximum 10 seasons allowed.
-        columns: List of column names to include (REQUIRED to manage response size).
-        filters: Optional dict to filter on any column. Keys are column names,
-                 values can be a single value or list of acceptable values.
-                 Use describe_dataset("qbr") to see available columns.
-        offset: Number of rows to skip for pagination (default 0).
-        limit: Maximum number of rows to return (default 100, max 100).
-
-    Returns:
-        QBR data as JSON with up to 100 rows by default. Use offset and limit
-        to paginate through larger result sets.
-
-    Examples:
-        Get QBR data: get_qbr([2024], ["player_name", "team", "qbr_total"])
-        Filter by team: get_qbr([2024], ["player_name", "qbr_total"], filters={"team": "KC"})
-        Paginate: get_qbr([2024], ["player_name", "team"], offset=100, limit=50)
-    """
-    return get_qbr_impl(seasons, columns, filters, offset, limit)
+    return get_schedules_impl(seasons, columns, filters, offset, limit)
 
 
 def main() -> None:

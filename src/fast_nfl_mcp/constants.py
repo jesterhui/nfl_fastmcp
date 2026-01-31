@@ -17,12 +17,11 @@ MAX_ROSTERS_SEASONS: int = 5
 MAX_SEASONS_WEEKLY: int = 5
 MAX_SEASONS_SEASONAL: int = 10
 
-# Maximum seasons for misc tools
-MAX_SEASONS_SNAP_COUNTS: int = 5
-MAX_SEASONS_INJURIES: int = 5
-MAX_SEASONS_DEPTH_CHARTS: int = 5
-MAX_SEASONS_COMBINE: int = 10
-MAX_SEASONS_QBR: int = 10
+# Maximum seasons for Next Gen Stats tools
+MAX_SEASONS_NGS: int = 5
+
+# Earliest season with Next Gen Stats data (NGS tracking started in 2016)
+MIN_SEASON_NGS: int = 2016
 
 # Valid week range for NFL regular season
 MIN_WEEK: int = 1
