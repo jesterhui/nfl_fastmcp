@@ -10,7 +10,7 @@ from unittest.mock import patch
 import pandas as pd
 import pytest
 
-from fast_nfl_mcp.constants import DEFAULT_MAX_ROWS, MAX_SEASONS_NGS, MIN_SEASON
+from fast_nfl_mcp.constants import DEFAULT_MAX_ROWS, MAX_SEASONS_NGS, MIN_SEASON_NGS
 from fast_nfl_mcp.models import ErrorResponse, SuccessResponse
 from fast_nfl_mcp.tools.next_gen import (
     get_ngs_passing_impl,
@@ -98,9 +98,9 @@ class TestValidateSeasons:
         assert warning is None
 
     def test_min_valid_season(self) -> None:
-        """Test minimum valid season."""
-        valid, warning = validate_seasons([MIN_SEASON], MAX_SEASONS_NGS)
-        assert valid == [MIN_SEASON]
+        """Test minimum valid season for NGS data (2016)."""
+        valid, warning = validate_seasons([MIN_SEASON_NGS], MAX_SEASONS_NGS)
+        assert valid == [MIN_SEASON_NGS]
         assert warning is None
 
 

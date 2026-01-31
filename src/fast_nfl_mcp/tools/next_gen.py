@@ -7,7 +7,7 @@ advanced tracking metrics captured by on-field sensors.
 
 from typing import Any
 
-from fast_nfl_mcp.constants import MAX_SEASONS_NGS, MIN_SEASON
+from fast_nfl_mcp.constants import MAX_SEASONS_NGS, MIN_SEASON_NGS
 from fast_nfl_mcp.data_fetcher import DataFetcher
 from fast_nfl_mcp.models import (
     ErrorResponse,
@@ -35,10 +35,11 @@ def validate_seasons(
     warnings: list[str] = []
 
     # First filter out invalid seasons (before applying max limit)
+    # NGS data is only available from 2016 onwards
     valid_seasons = []
     invalid_seasons = []
     for season in seasons:
-        if season >= MIN_SEASON:
+        if season >= MIN_SEASON_NGS:
             valid_seasons.append(season)
         else:
             invalid_seasons.append(season)
@@ -46,7 +47,7 @@ def validate_seasons(
     if invalid_seasons:
         warnings.append(
             f"Invalid seasons removed: {invalid_seasons}. "
-            f"Data is available from {MIN_SEASON} onwards."
+            f"Next Gen Stats data is available from {MIN_SEASON_NGS} onwards."
         )
 
     # Then apply max_seasons limit to valid seasons only
