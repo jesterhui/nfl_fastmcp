@@ -3,6 +3,7 @@ specs/*
 tasks/
 .mcp.json
 CLAUDE.md
+.worktrees/
 
 # Python
 __pycache__/

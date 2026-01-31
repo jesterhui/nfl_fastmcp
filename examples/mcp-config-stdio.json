@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "fast-nfl-mcp": {
+      "command": "uv",
+      "args": ["run", "fast-nfl-mcp"],
+      "cwd": "/path/to/fast-nfl-mcp"
+    }
+  }
+}
