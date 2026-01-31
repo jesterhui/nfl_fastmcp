@@ -1,15 +1,17 @@
 services:
+  # SSE mode - persistent server for MCP clients to connect to
   fast-nfl-mcp:
     build:
       context: .
       dockerfile: Dockerfile
+    command: ["--sse", "--port", "8000"]
+    ports:
+      - "8000:8000"
     environment:
       - NFL_CACHE_DIR=/app/cache
     volumes:
       - nfl-cache:/app/cache
-    # MCP uses stdio transport, no ports needed
-    stdin_open: true
-    tty: true
+    restart: unless-stopped
 
 volumes:
   nfl-cache:
