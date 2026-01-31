@@ -17,6 +17,9 @@ MAX_ROSTERS_SEASONS: int = 5
 MAX_SEASONS_WEEKLY: int = 5
 MAX_SEASONS_SEASONAL: int = 10
 
+# Maximum seasons for Next Gen Stats tools
+MAX_SEASONS_NGS: int = 5
+
 # Valid week range for NFL regular season
 MIN_WEEK: int = 1
 MAX_WEEK: int = 18

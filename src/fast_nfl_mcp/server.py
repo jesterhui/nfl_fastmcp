@@ -14,6 +14,11 @@ from pydantic import Field
 
 from fast_nfl_mcp.models import ErrorResponse, SuccessResponse
 from fast_nfl_mcp.schema_manager import SchemaManager
+from fast_nfl_mcp.tools.next_gen import (
+    get_ngs_passing_impl,
+    get_ngs_receiving_impl,
+    get_ngs_rushing_impl,
+)
 from fast_nfl_mcp.tools.play_by_play import get_play_by_play_impl
 from fast_nfl_mcp.tools.player_stats import (
     get_seasonal_stats_impl,
@@ -650,6 +655,237 @@ def get_contracts(
         Paginate: get_contracts(offset=100, limit=50)
     """
     return get_contracts_impl(offset=offset, limit=limit)
+
+
+@mcp.tool()
+def get_ngs_passing(
+    seasons: list[int],
+    columns: Annotated[
+        list[str],
+        Field(
+            description="List of column names to include in output (REQUIRED). "
+            "Use describe_dataset('ngs_passing') to see available columns. "
+            "Common useful columns: player_display_name, team_abbr, season, week, "
+            "avg_time_to_throw, avg_completed_air_yards, avg_air_yards_differential, "
+            "aggressiveness, max_completed_air_distance, avg_air_yards_to_sticks, "
+            "passer_rating, completion_percentage, expected_completion_percentage, "
+            "completion_percentage_above_expectation, attempts, completions, "
+            "passing_yards, passing_tds, interceptions"
+        ),
+    ],
+    filters: Annotated[
+        dict[str, Any] | None,
+        Field(
+            description="Filter on any column. Keys are column names, values are "
+            "either a single value or list of acceptable values. "
+            'Example: {"team_abbr": "KC", "season": 2024}'
+        ),
+    ] = None,
+    offset: Annotated[
+        int,
+        Field(
+            description="Number of rows to skip for pagination. Use with limit to "
+            "page through results.",
+            ge=0,
+        ),
+    ] = 0,
+    limit: Annotated[
+        int | None,
+        Field(
+            description="Maximum number of rows to return (default 100, max 100).",
+            ge=1,
+            le=100,
+        ),
+    ] = None,
+) -> SuccessResponse | ErrorResponse:
+    """Get NFL Next Gen Stats passing metrics.
+
+    Retrieves advanced passing statistics from NFL Next Gen Stats, which uses
+    player tracking data to calculate metrics not available in traditional
+    box scores. NGS data is available from 2016 onwards.
+
+    Key columns include:
+    - Player info: player_display_name, player_gsis_id, team_abbr
+    - Context: season, week, season_type
+    - Time metrics: avg_time_to_throw (seconds in pocket before throw)
+    - Air yards: avg_completed_air_yards, avg_intended_air_yards, avg_air_yards_differential
+    - Advanced: aggressiveness (% of passes into tight windows), completion_percentage_above_expectation
+    - Expected: expected_completion_percentage (xCOMP based on difficulty)
+    - Traditional: passer_rating, completion_percentage, passing_yards, passing_tds
+
+    Args:
+        seasons: List of seasons (e.g., [2023, 2024]). Maximum 5 seasons allowed.
+                 NGS data is available from 2016 onwards.
+        columns: List of column names to include (REQUIRED to manage response size).
+        filters: Optional dict to filter on any column. Keys are column names,
+                 values can be a single value or list of acceptable values.
+                 Use describe_dataset("ngs_passing") to see available columns.
+        offset: Number of rows to skip for pagination (default 0).
+        limit: Maximum number of rows to return (default 100, max 100).
+
+    Returns:
+        NGS passing data as JSON with up to 100 rows by default. Use offset and limit
+        to paginate through larger result sets.
+
+    Examples:
+        Get passing metrics: get_ngs_passing([2024], ["player_display_name", "avg_time_to_throw", "passer_rating"])
+        Filter by team: get_ngs_passing([2024], ["player_display_name", "aggressiveness"], filters={"team_abbr": "KC"})
+        Paginate: get_ngs_passing([2024], ["player_display_name", "passing_yards"], offset=100, limit=50)
+    """
+    return get_ngs_passing_impl(seasons, columns, filters, offset, limit)
+
+
+@mcp.tool()
+def get_ngs_rushing(
+    seasons: list[int],
+    columns: Annotated[
+        list[str],
+        Field(
+            description="List of column names to include in output (REQUIRED). "
+            "Use describe_dataset('ngs_rushing') to see available columns. "
+            "Common useful columns: player_display_name, team_abbr, season, week, "
+            "efficiency, percent_attempts_gte_eight_defenders, avg_time_to_los, "
+            "rush_attempts, rush_yards, rush_touchdowns, avg_rush_yards, "
+            "expected_rush_yards, rush_yards_over_expected, "
+            "rush_yards_over_expected_per_att, rush_pct_over_expected"
+        ),
+    ],
+    filters: Annotated[
+        dict[str, Any] | None,
+        Field(
+            description="Filter on any column. Keys are column names, values are "
+            "either a single value or list of acceptable values. "
+            'Example: {"team_abbr": "SF", "season": 2024}'
+        ),
+    ] = None,
+    offset: Annotated[
+        int,
+        Field(
+            description="Number of rows to skip for pagination. Use with limit to "
+            "page through results.",
+            ge=0,
+        ),
+    ] = 0,
+    limit: Annotated[
+        int | None,
+        Field(
+            description="Maximum number of rows to return (default 100, max 100).",
+            ge=1,
+            le=100,
+        ),
+    ] = None,
+) -> SuccessResponse | ErrorResponse:
+    """Get NFL Next Gen Stats rushing metrics.
+
+    Retrieves advanced rushing statistics from NFL Next Gen Stats, which uses
+    player tracking data to calculate metrics like rush yards over expected
+    and efficiency ratings. NGS data is available from 2016 onwards.
+
+    Key columns include:
+    - Player info: player_display_name, player_gsis_id, team_abbr
+    - Context: season, week, season_type
+    - Efficiency: efficiency (yards per rush vs expected), avg_time_to_los (seconds to line of scrimmage)
+    - Stacked boxes: percent_attempts_gte_eight_defenders (% rushes vs stacked box)
+    - Expected yards: expected_rush_yards, rush_yards_over_expected, rush_yards_over_expected_per_att
+    - Traditional: rush_attempts, rush_yards, rush_touchdowns, avg_rush_yards
+
+    Args:
+        seasons: List of seasons (e.g., [2023, 2024]). Maximum 5 seasons allowed.
+                 NGS data is available from 2016 onwards.
+        columns: List of column names to include (REQUIRED to manage response size).
+        filters: Optional dict to filter on any column. Keys are column names,
+                 values can be a single value or list of acceptable values.
+                 Use describe_dataset("ngs_rushing") to see available columns.
+        offset: Number of rows to skip for pagination (default 0).
+        limit: Maximum number of rows to return (default 100, max 100).
+
+    Returns:
+        NGS rushing data as JSON with up to 100 rows by default. Use offset and limit
+        to paginate through larger result sets.
+
+    Examples:
+        Get rushing metrics: get_ngs_rushing([2024], ["player_display_name", "efficiency", "rush_yards_over_expected"])
+        Filter by team: get_ngs_rushing([2024], ["player_display_name", "rush_yards"], filters={"team_abbr": "SF"})
+        Paginate: get_ngs_rushing([2024], ["player_display_name", "rush_touchdowns"], offset=100, limit=50)
+    """
+    return get_ngs_rushing_impl(seasons, columns, filters, offset, limit)
+
+
+@mcp.tool()
+def get_ngs_receiving(
+    seasons: list[int],
+    columns: Annotated[
+        list[str],
+        Field(
+            description="List of column names to include in output (REQUIRED). "
+            "Use describe_dataset('ngs_receiving') to see available columns. "
+            "Common useful columns: player_display_name, team_abbr, season, week, "
+            "avg_cushion, avg_separation, avg_intended_air_yards, "
+            "percent_share_of_intended_air_yards, catch_percentage, "
+            "avg_yac, avg_expected_yac, avg_yac_above_expectation, "
+            "receptions, targets, receiving_yards, receiving_touchdowns"
+        ),
+    ],
+    filters: Annotated[
+        dict[str, Any] | None,
+        Field(
+            description="Filter on any column. Keys are column names, values are "
+            "either a single value or list of acceptable values. "
+            'Example: {"team_abbr": "MIA", "season": 2024}'
+        ),
+    ] = None,
+    offset: Annotated[
+        int,
+        Field(
+            description="Number of rows to skip for pagination. Use with limit to "
+            "page through results.",
+            ge=0,
+        ),
+    ] = 0,
+    limit: Annotated[
+        int | None,
+        Field(
+            description="Maximum number of rows to return (default 100, max 100).",
+            ge=1,
+            le=100,
+        ),
+    ] = None,
+) -> SuccessResponse | ErrorResponse:
+    """Get NFL Next Gen Stats receiving metrics.
+
+    Retrieves advanced receiving statistics from NFL Next Gen Stats, which uses
+    player tracking data to calculate metrics like separation, cushion, and
+    yards after catch above expectation. NGS data is available from 2016 onwards.
+
+    Key columns include:
+    - Player info: player_display_name, player_gsis_id, team_abbr
+    - Context: season, week, season_type
+    - Separation: avg_cushion (yards from DB at snap), avg_separation (yards from DB at catch)
+    - Air yards: avg_intended_air_yards, percent_share_of_intended_air_yards
+    - YAC metrics: avg_yac, avg_expected_yac, avg_yac_above_expectation
+    - Catch metrics: catch_percentage
+    - Traditional: receptions, targets, receiving_yards, receiving_touchdowns
+
+    Args:
+        seasons: List of seasons (e.g., [2023, 2024]). Maximum 5 seasons allowed.
+                 NGS data is available from 2016 onwards.
+        columns: List of column names to include (REQUIRED to manage response size).
+        filters: Optional dict to filter on any column. Keys are column names,
+                 values can be a single value or list of acceptable values.
+                 Use describe_dataset("ngs_receiving") to see available columns.
+        offset: Number of rows to skip for pagination (default 0).
+        limit: Maximum number of rows to return (default 100, max 100).
+
+    Returns:
+        NGS receiving data as JSON with up to 100 rows by default. Use offset and limit
+        to paginate through larger result sets.
+
+    Examples:
+        Get receiving metrics: get_ngs_receiving([2024], ["player_display_name", "avg_separation", "avg_yac"])
+        Filter by team: get_ngs_receiving([2024], ["player_display_name", "targets"], filters={"team_abbr": "MIA"})
+        Paginate: get_ngs_receiving([2024], ["player_display_name", "receiving_yards"], offset=100, limit=50)
+    """
+    return get_ngs_receiving_impl(seasons, columns, filters, offset, limit)
 
 
 def main() -> None:
