@@ -49,9 +49,45 @@ This runs the server in stdio mode for local development and allows rapid iterat
 
 ## Configuration
 
-Add to your MCP client configuration (e.g., Claude Desktop, Claude Code):
+### Claude Code
+
+Add the server to your Claude Code settings:
+
+**Option 1: Project-level configuration (recommended)**
+
+Create or edit `.mcp.json` in your project root:
+
+```json
+{
+  "mcpServers": {
+    "fast-nfl-mcp": {
+      "command": "uv",
+      "args": ["run", "fast-nfl-mcp"],
+      "cwd": "/path/to/fast-nfl-mcp"
+    }
+  }
+}
+```
+
+**Option 2: Global configuration**
+
+Add to `~/.claude/settings.json`:
+
+```json
+{
+  "mcpServers": {
+    "fast-nfl-mcp": {
+      "command": "uv",
+      "args": ["run", "fast-nfl-mcp"],
+      "cwd": "/path/to/fast-nfl-mcp"
+    }
+  }
+}
+```
 
 ### Docker (SSE mode)
+
+If running via Docker Compose, use SSE transport:
 
 ```json
 {
@@ -64,18 +100,15 @@ Add to your MCP client configuration (e.g., Claude Desktop, Claude Code):
 }
 ```
 
-### Local Development (stdio mode)
+### Verifying the Configuration
 
-```json
-{
-  "mcpServers": {
-    "fast-nfl-mcp": {
-      "command": "uv",
-      "args": ["run", "fast-nfl-mcp"]
-    }
-  }
-}
-```
+After adding the configuration, restart Claude Code. You should see "fast-nfl-mcp" in the available MCP servers. Test by asking:
+
+- "List available NFL datasets"
+- "Look up Patrick Mahomes"
+- "Get team descriptions"
+
+See `examples/` for ready-to-use configuration files.
 
 ## Available Tools
 
