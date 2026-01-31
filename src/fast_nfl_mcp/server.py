@@ -14,6 +14,7 @@ from pydantic import Field
 
 from fast_nfl_mcp.models import ErrorResponse, SuccessResponse
 from fast_nfl_mcp.schema_manager import SchemaManager
+from fast_nfl_mcp.tools.draft import get_draft_picks_impl
 from fast_nfl_mcp.tools.play_by_play import get_play_by_play_impl
 from fast_nfl_mcp.tools.player_stats import (
     get_seasonal_stats_impl,
@@ -27,6 +28,7 @@ from fast_nfl_mcp.tools.reference import (
     lookup_player_impl,
 )
 from fast_nfl_mcp.tools.rosters import get_rosters_impl
+from fast_nfl_mcp.tools.schedules import get_schedules_impl
 from fast_nfl_mcp.tools.utilities import describe_dataset_impl, list_datasets_impl
 
 
@@ -650,6 +652,155 @@ def get_contracts(
         Paginate: get_contracts(offset=100, limit=50)
     """
     return get_contracts_impl(offset=offset, limit=limit)
+
+
+@mcp.tool()
+def get_draft_picks(
+    seasons: list[int],
+    columns: Annotated[
+        list[str] | None,
+        Field(
+            description="List of column names to include in output (optional). "
+            "Use describe_dataset('draft_picks') to see available columns. "
+            "Common useful columns: season, round, pick, team, pfr_player_name, position"
+        ),
+    ] = None,
+    filters: Annotated[
+        dict[str, Any] | None,
+        Field(
+            description="Filter on any column. Keys are column names, values are "
+            "either a single value or list of acceptable values. "
+            'Example: {"team": "KC", "round": [1, 2]}'
+        ),
+    ] = None,
+    offset: Annotated[
+        int,
+        Field(
+            description="Number of rows to skip for pagination. Use with limit to "
+            "page through results.",
+            ge=0,
+        ),
+    ] = 0,
+    limit: Annotated[
+        int | None,
+        Field(
+            description="Maximum number of rows to return (default 100, max 100).",
+            ge=1,
+            le=100,
+        ),
+    ] = None,
+) -> SuccessResponse | ErrorResponse:
+    """Get historical NFL draft picks data.
+
+    Retrieves draft pick information for the specified seasons, including
+    player selection details, team information, and draft positions.
+
+    Key columns include:
+    - season: Draft year
+    - round: Draft round (1-7)
+    - pick: Overall pick number
+    - team: Team that made the selection
+    - pfr_player_name: Player name
+    - position: Player position
+    - age: Player age at draft time
+    - college: College attended
+
+    Args:
+        seasons: List of seasons (e.g., [2020, 2021, 2022]). Maximum 20 seasons allowed.
+                 Draft data is available from 1999 onwards.
+        columns: List of column names to include in output (optional).
+        filters: Optional dict to filter on any column. Keys are column names,
+                 values can be a single value or list of acceptable values.
+                 Use describe_dataset("draft_picks") to see available columns.
+        offset: Number of rows to skip for pagination (default 0).
+        limit: Maximum number of rows to return (default 100, max 100).
+
+    Returns:
+        Draft picks data as JSON with up to 100 rows by default. Use offset and limit
+        to paginate through larger result sets.
+
+    Examples:
+        Get draft picks: get_draft_picks([2024])
+        Filter by team: get_draft_picks([2024], filters={"team": "KC"})
+        First round only: get_draft_picks([2024], filters={"round": 1})
+        Paginate: get_draft_picks([2024], offset=100, limit=50)
+    """
+    return get_draft_picks_impl(seasons, columns, filters, offset, limit)
+
+
+@mcp.tool()
+def get_schedules(
+    seasons: list[int],
+    columns: Annotated[
+        list[str] | None,
+        Field(
+            description="List of column names to include in output (optional). "
+            "Use describe_dataset('schedules') to see available columns. "
+            "Common useful columns: game_id, season, week, home_team, away_team, "
+            "home_score, away_score, gameday"
+        ),
+    ] = None,
+    filters: Annotated[
+        dict[str, Any] | None,
+        Field(
+            description="Filter on any column. Keys are column names, values are "
+            "either a single value or list of acceptable values. "
+            'Example: {"home_team": "KC", "week": [1, 2, 3]}'
+        ),
+    ] = None,
+    offset: Annotated[
+        int,
+        Field(
+            description="Number of rows to skip for pagination. Use with limit to "
+            "page through results.",
+            ge=0,
+        ),
+    ] = 0,
+    limit: Annotated[
+        int | None,
+        Field(
+            description="Maximum number of rows to return (default 100, max 100).",
+            ge=1,
+            le=100,
+        ),
+    ] = None,
+) -> SuccessResponse | ErrorResponse:
+    """Get NFL game schedules and results.
+
+    Retrieves game schedule information for the specified seasons, including
+    matchups, dates, scores, and game outcomes.
+
+    Key columns include:
+    - game_id: Unique game identifier
+    - season: Season year
+    - week: Week number
+    - gameday: Date of the game
+    - home_team: Home team abbreviation
+    - away_team: Away team abbreviation
+    - home_score: Home team final score
+    - away_score: Away team final score
+
+    Args:
+        seasons: List of seasons (e.g., [2020, 2021, 2022]). Maximum 10 seasons allowed.
+                 Schedule data is available from 1999 onwards.
+        columns: List of column names to include in output (optional).
+        filters: Optional dict to filter on any column. Keys are column names,
+                 values can be a single value or list of acceptable values.
+                 Use describe_dataset("schedules") to see available columns.
+        offset: Number of rows to skip for pagination (default 0).
+        limit: Maximum number of rows to return (default 100, max 100).
+
+    Returns:
+        Schedule data as JSON with up to 100 rows by default. Use offset and limit
+        to paginate through larger result sets.
+
+    Examples:
+        Get schedules: get_schedules([2024])
+        Filter by team: get_schedules([2024], filters={"home_team": "KC"})
+        Filter by week: get_schedules([2024], filters={"week": [1, 2]})
+        Paginate: get_schedules([2024], offset=100, limit=50)
+    """
+    return get_schedules_impl(seasons, columns, filters, offset, limit)
 
 
 def main() -> None:
