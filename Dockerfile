@@ -32,5 +32,9 @@ RUN uv pip install --no-cache .
 # Switch to non-root user
 USER appuser
 
+# Expose port for HTTP mode
+EXPOSE 8000
+
 # Set the entrypoint for the MCP server
-ENTRYPOINT ["python", "-m", "fast_nfl_mcp.server"]
+# Default is stdio mode; use --http for persistent HTTP server
+ENTRYPOINT ["fast-nfl-mcp"]
