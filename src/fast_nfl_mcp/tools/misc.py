@@ -13,12 +13,12 @@ from fast_nfl_mcp.constants import (
     MAX_SEASONS_QBR,
     MAX_SEASONS_SNAP_COUNTS,
 )
-from fast_nfl_mcp.data_fetcher import DataFetcher
 from fast_nfl_mcp.models import (
     ErrorResponse,
     SuccessResponse,
     create_success_response,
 )
+from fast_nfl_mcp.nfl_data_py_fetcher import NFLDataPyFetcher
 from fast_nfl_mcp.tools.validation import normalize_filters, validate_seasons
 from fast_nfl_mcp.utils import add_warnings_to_response
 
@@ -65,7 +65,7 @@ def get_snap_counts_impl(
     combined_filters = normalize_filters(filters)
 
     # Fetch the data using generic fetch with filters and pagination
-    fetcher = DataFetcher()
+    fetcher = NFLDataPyFetcher()
     result = fetcher.fetch(
         "snap_counts",
         {"seasons": valid_seasons},
@@ -124,7 +124,7 @@ def get_injuries_impl(
     combined_filters = normalize_filters(filters)
 
     # Fetch the data using generic fetch with filters and pagination
-    fetcher = DataFetcher()
+    fetcher = NFLDataPyFetcher()
     result = fetcher.fetch(
         "injuries",
         {"seasons": valid_seasons},
@@ -183,7 +183,7 @@ def get_depth_charts_impl(
     combined_filters = normalize_filters(filters)
 
     # Fetch the data using generic fetch with filters and pagination
-    fetcher = DataFetcher()
+    fetcher = NFLDataPyFetcher()
     result = fetcher.fetch(
         "depth_charts",
         {"seasons": valid_seasons},
@@ -242,7 +242,7 @@ def get_combine_data_impl(
     combined_filters = normalize_filters(filters)
 
     # Fetch the data using generic fetch with filters and pagination
-    fetcher = DataFetcher()
+    fetcher = NFLDataPyFetcher()
     result = fetcher.fetch(
         "combine_data",
         {"seasons": valid_seasons},
@@ -305,7 +305,7 @@ def get_qbr_impl(
     combined_filters = normalize_filters(filters)
 
     # Fetch the data using generic fetch with filters and pagination
-    fetcher = DataFetcher()
+    fetcher = NFLDataPyFetcher()
     result = fetcher.fetch(
         "qbr",
         {"seasons": valid_seasons},
