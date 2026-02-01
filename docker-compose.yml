@@ -1,4 +1,18 @@
 services:
+  # Redis cache for player_ids dataset
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
   # SSE mode - persistent server for MCP clients to connect to
   fast-nfl-mcp:
     build:
@@ -9,11 +23,18 @@ services:
       - "8000:8000"
     environment:
       - NFL_CACHE_DIR=/app/cache
+      - REDIS_URL=redis://redis:6379
+      - PLAYER_IDS_CACHE_TTL_SECONDS=3600
     volumes:
       - nfl-cache:/app/cache
       - ~/.kaggle:/home/appuser/.kaggle:ro
     restart: unless-stopped
+    depends_on:
+      redis:
+        condition: service_healthy
 
 volumes:
   nfl-cache:
     name: fast-nfl-mcp-cache
+  redis-data:
+    name: fast-nfl-mcp-redis

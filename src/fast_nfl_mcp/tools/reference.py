@@ -14,6 +14,7 @@ from fast_nfl_mcp.constants import (
     LOOKUP_PLAYER_COLUMNS,
     LOOKUP_PLAYER_DEFAULT_LIMIT,
     LOOKUP_PLAYER_MAX_LIMIT,
+    get_player_ids_cache_ttl,
 )
 from fast_nfl_mcp.enums import DatasetName
 from fast_nfl_mcp.models import (
@@ -23,6 +24,11 @@ from fast_nfl_mcp.models import (
     create_success_response,
 )
 from fast_nfl_mcp.nfl_data_py_fetcher import NFLDataPyFetcher
+from fast_nfl_mcp.redis_cache import (
+    PLAYER_IDS_CACHE_KEY,
+    get_cached_dataframe,
+    set_cached_dataframe,
+)
 from fast_nfl_mcp.schema_manager import DATASET_DEFINITIONS
 from fast_nfl_mcp.serialization import convert_value
 
@@ -182,8 +188,21 @@ def lookup_player_impl(
     try:
         logger.info(f"Looking up player with name: {name}")
 
-        # Load the player_ids dataset
-        df = definition.loader(None)
+        # Try to get player_ids from cache first
+        df = get_cached_dataframe(PLAYER_IDS_CACHE_KEY)
+
+        if df is None:
+            # Cache miss - load from source
+            logger.info("Cache miss for player_ids, loading from source")
+            df = definition.loader(None)
+
+            # Cache the result if load succeeded
+            if df is not None and not df.empty:
+                ttl = get_player_ids_cache_ttl()
+                if set_cached_dataframe(PLAYER_IDS_CACHE_KEY, df, ttl):
+                    logger.info(f"Cached player_ids DataFrame (TTL: {ttl}s)")
+        else:
+            logger.info("Cache hit for player_ids")
 
         if df is None or df.empty:
             return create_success_response(

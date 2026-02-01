@@ -888,3 +888,243 @@ class TestReferenceToolsIntegration:
             assert get_team_descriptions_impl().success is True
             assert get_officials_impl().success is True
             assert get_contracts_impl().success is True
+
+
+class TestLookupPlayerCaching:
+    """Tests for lookup_player caching behavior with Redis."""
+
+    @pytest.fixture
+    def sample_player_ids_df(self) -> pd.DataFrame:
+        """Create a sample player IDs DataFrame with merge_name column."""
+        return pd.DataFrame(
+            {
+                "gsis_id": ["00-0033873", "00-0036945", "00-0036389"],
+                "name": ["Patrick Mahomes", "Josh Allen", "Brock Purdy"],
+                "team": ["KC", "BUF", "SF"],
+                "position": ["QB", "QB", "QB"],
+                "merge_name": ["patrick mahomes", "josh allen", "brock purdy"],
+            }
+        )
+
+    @pytest.fixture(autouse=True)
+    def reset_redis_state(self) -> None:
+        """Reset Redis connection state before each test."""
+        from fast_nfl_mcp.redis_cache import reset_redis_connection
+
+        reset_redis_connection()
+        yield
+        reset_redis_connection()
+
+    def test_cache_miss_loads_from_source(
+        self, sample_player_ids_df: pd.DataFrame
+    ) -> None:
+        """Test that cache miss loads data from source and caches it."""
+        with (
+            patch("fast_nfl_mcp.schema_manager.nfl.import_ids") as mock_import,
+            patch(
+                "fast_nfl_mcp.tools.reference.get_cached_dataframe"
+            ) as mock_get_cache,
+            patch(
+                "fast_nfl_mcp.tools.reference.set_cached_dataframe"
+            ) as mock_set_cache,
+        ):
+            mock_import.return_value = sample_player_ids_df
+            mock_get_cache.return_value = None  # Cache miss
+            mock_set_cache.return_value = True
+
+            result = lookup_player_impl("Mahomes")
+
+            assert isinstance(result, SuccessResponse)
+            assert result.success is True
+            assert len(result.data) == 1
+            # Verify source was called
+            mock_import.assert_called_once()
+            # Verify cache was set
+            mock_set_cache.assert_called_once()
+
+    def test_cache_hit_skips_source_load(
+        self, sample_player_ids_df: pd.DataFrame
+    ) -> None:
+        """Test that cache hit skips loading from source."""
+        with (
+            patch("fast_nfl_mcp.schema_manager.nfl.import_ids") as mock_import,
+            patch(
+                "fast_nfl_mcp.tools.reference.get_cached_dataframe"
+            ) as mock_get_cache,
+            patch(
+                "fast_nfl_mcp.tools.reference.set_cached_dataframe"
+            ) as mock_set_cache,
+        ):
+            mock_get_cache.return_value = sample_player_ids_df  # Cache hit
+
+            result = lookup_player_impl("Mahomes")
+
+            assert isinstance(result, SuccessResponse)
+            assert result.success is True
+            assert len(result.data) == 1
+            # Verify source was NOT called
+            mock_import.assert_not_called()
+            # Verify cache was NOT set (already cached)
+            mock_set_cache.assert_not_called()
+
+    def test_cache_uses_correct_key(self, sample_player_ids_df: pd.DataFrame) -> None:
+        """Test that caching uses the correct cache key."""
+        from fast_nfl_mcp.redis_cache import PLAYER_IDS_CACHE_KEY
+
+        with (
+            patch("fast_nfl_mcp.schema_manager.nfl.import_ids") as mock_import,
+            patch(
+                "fast_nfl_mcp.tools.reference.get_cached_dataframe"
+            ) as mock_get_cache,
+            patch(
+                "fast_nfl_mcp.tools.reference.set_cached_dataframe"
+            ) as mock_set_cache,
+        ):
+            mock_import.return_value = sample_player_ids_df
+            mock_get_cache.return_value = None
+            mock_set_cache.return_value = True
+
+            lookup_player_impl("Mahomes")
+
+            mock_get_cache.assert_called_once_with(PLAYER_IDS_CACHE_KEY)
+            # Verify set was called with correct key
+            call_args = mock_set_cache.call_args
+            assert call_args[0][0] == PLAYER_IDS_CACHE_KEY
+
+    def test_cache_ttl_from_environment(
+        self, sample_player_ids_df: pd.DataFrame
+    ) -> None:
+        """Test that cache TTL is read from environment variable."""
+        import os
+
+        with patch.dict(os.environ, {"PLAYER_IDS_CACHE_TTL_SECONDS": "7200"}):
+            with (
+                patch("fast_nfl_mcp.schema_manager.nfl.import_ids") as mock_import,
+                patch(
+                    "fast_nfl_mcp.tools.reference.get_cached_dataframe"
+                ) as mock_get_cache,
+                patch(
+                    "fast_nfl_mcp.tools.reference.set_cached_dataframe"
+                ) as mock_set_cache,
+            ):
+                mock_import.return_value = sample_player_ids_df
+                mock_get_cache.return_value = None
+                mock_set_cache.return_value = True
+
+                lookup_player_impl("Mahomes")
+
+                # Verify TTL of 7200 was used
+                call_args = mock_set_cache.call_args
+                assert call_args[0][2] == 7200
+
+    def test_cache_ttl_default_value(self, sample_player_ids_df: pd.DataFrame) -> None:
+        """Test that default cache TTL is used when env var not set."""
+        import os
+
+        from fast_nfl_mcp.constants import DEFAULT_PLAYER_IDS_CACHE_TTL_SECONDS
+
+        # Ensure env var is not set
+        env = os.environ.copy()
+        env.pop("PLAYER_IDS_CACHE_TTL_SECONDS", None)
+        with patch.dict(os.environ, env, clear=True):
+            with (
+                patch("fast_nfl_mcp.schema_manager.nfl.import_ids") as mock_import,
+                patch(
+                    "fast_nfl_mcp.tools.reference.get_cached_dataframe"
+                ) as mock_get_cache,
+                patch(
+                    "fast_nfl_mcp.tools.reference.set_cached_dataframe"
+                ) as mock_set_cache,
+            ):
+                mock_import.return_value = sample_player_ids_df
+                mock_get_cache.return_value = None
+                mock_set_cache.return_value = True
+
+                lookup_player_impl("Mahomes")
+
+                # Verify default TTL was used
+                call_args = mock_set_cache.call_args
+                assert call_args[0][2] == DEFAULT_PLAYER_IDS_CACHE_TTL_SECONDS
+
+    def test_graceful_fallback_when_redis_unavailable(
+        self, sample_player_ids_df: pd.DataFrame
+    ) -> None:
+        """Test that lookup works when Redis is unavailable."""
+        with (
+            patch("fast_nfl_mcp.schema_manager.nfl.import_ids") as mock_import,
+            patch(
+                "fast_nfl_mcp.tools.reference.get_cached_dataframe"
+            ) as mock_get_cache,
+            patch(
+                "fast_nfl_mcp.tools.reference.set_cached_dataframe"
+            ) as mock_set_cache,
+        ):
+            mock_import.return_value = sample_player_ids_df
+            mock_get_cache.return_value = None  # Redis unavailable/miss
+            mock_set_cache.return_value = False  # Cache set failed
+
+            result = lookup_player_impl("Mahomes")
+
+            # Should still work despite cache failure
+            assert isinstance(result, SuccessResponse)
+            assert result.success is True
+            assert len(result.data) == 1
+            assert result.data[0]["name"] == "Patrick Mahomes"
+
+    def test_repeated_calls_use_cache(self, sample_player_ids_df: pd.DataFrame) -> None:
+        """Test that repeated calls reuse cached data."""
+        call_count = 0
+
+        def mock_get_cache(key: str) -> pd.DataFrame | None:
+            nonlocal call_count
+            call_count += 1
+            if call_count == 1:
+                return None  # First call: cache miss
+            return sample_player_ids_df  # Subsequent calls: cache hit
+
+        with (
+            patch("fast_nfl_mcp.schema_manager.nfl.import_ids") as mock_import,
+            patch(
+                "fast_nfl_mcp.tools.reference.get_cached_dataframe",
+                side_effect=mock_get_cache,
+            ),
+            patch(
+                "fast_nfl_mcp.tools.reference.set_cached_dataframe"
+            ) as mock_set_cache,
+        ):
+            mock_import.return_value = sample_player_ids_df
+            mock_set_cache.return_value = True
+
+            # First call - cache miss, loads from source
+            result1 = lookup_player_impl("Mahomes")
+            assert mock_import.call_count == 1
+
+            # Second call - cache hit, no source load
+            result2 = lookup_player_impl("Allen")
+            assert mock_import.call_count == 1  # Still 1, no additional call
+
+            # Both should succeed
+            assert result1.success is True
+            assert result2.success is True
+
+    def test_empty_dataframe_not_cached(self) -> None:
+        """Test that empty DataFrame is not cached."""
+        with (
+            patch("fast_nfl_mcp.schema_manager.nfl.import_ids") as mock_import,
+            patch(
+                "fast_nfl_mcp.tools.reference.get_cached_dataframe"
+            ) as mock_get_cache,
+            patch(
+                "fast_nfl_mcp.tools.reference.set_cached_dataframe"
+            ) as mock_set_cache,
+        ):
+            mock_import.return_value = pd.DataFrame()
+            mock_get_cache.return_value = None
+
+            result = lookup_player_impl("Mahomes")
+
+            assert isinstance(result, SuccessResponse)
+            assert result.success is True
+            assert len(result.data) == 0
+            # Verify empty DataFrame was NOT cached
+            mock_set_cache.assert_not_called()
