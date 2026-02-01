@@ -5,7 +5,7 @@ data loading, caching, and error handling using mocked data.
 """
 
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import pandas as pd
 import pytest
@@ -95,12 +95,11 @@ class TestKaggleFetcherDownload:
         fetcher._auth_checked = True
         fetcher._auth_valid = True
 
-        mock_kagglehub = MagicMock()
-        mock_kagglehub.competition_download.side_effect = Exception(
-            "403 Forbidden: Access denied"
-        )
+        with patch(
+            "fast_nfl_mcp.kaggle_fetcher.kagglehub.competition_download"
+        ) as mock_download:
+            mock_download.side_effect = Exception("403 Forbidden: Access denied")
 
-        with patch.dict("sys.modules", {"kagglehub": mock_kagglehub}):
             with pytest.raises(KaggleCompetitionError) as exc_info:
                 fetcher._download_competition_data()
 
@@ -113,10 +112,11 @@ class TestKaggleFetcherDownload:
         fetcher._auth_checked = True
         fetcher._auth_valid = True
 
-        mock_kagglehub = MagicMock()
-        mock_kagglehub.competition_download.side_effect = Exception("404 Not Found")
+        with patch(
+            "fast_nfl_mcp.kaggle_fetcher.kagglehub.competition_download"
+        ) as mock_download:
+            mock_download.side_effect = Exception("404 Not Found")
 
-        with patch.dict("sys.modules", {"kagglehub": mock_kagglehub}):
             with pytest.raises(KaggleCompetitionError) as exc_info:
                 fetcher._download_competition_data()
 
@@ -128,10 +128,11 @@ class TestKaggleFetcherDownload:
         fetcher._auth_checked = True
         fetcher._auth_valid = True
 
-        mock_kagglehub = MagicMock()
-        mock_kagglehub.competition_download.side_effect = Exception("401 Unauthorized")
+        with patch(
+            "fast_nfl_mcp.kaggle_fetcher.kagglehub.competition_download"
+        ) as mock_download:
+            mock_download.side_effect = Exception("401 Unauthorized")
 
-        with patch.dict("sys.modules", {"kagglehub": mock_kagglehub}):
             with pytest.raises(KaggleAuthError) as exc_info:
                 fetcher._download_competition_data()
 
@@ -143,10 +144,11 @@ class TestKaggleFetcherDownload:
         fetcher._auth_checked = True
         fetcher._auth_valid = True
 
-        mock_kagglehub = MagicMock()
-        mock_kagglehub.competition_download.return_value = str(tmp_path)
+        with patch(
+            "fast_nfl_mcp.kaggle_fetcher.kagglehub.competition_download"
+        ) as mock_download:
+            mock_download.return_value = str(tmp_path)
 
-        with patch.dict("sys.modules", {"kagglehub": mock_kagglehub}):
             # First call
             path1 = fetcher._download_competition_data()
 
@@ -155,7 +157,7 @@ class TestKaggleFetcherDownload:
 
             assert path1 == path2
             # Should only call download once
-            mock_kagglehub.competition_download.assert_called_once()
+            mock_download.assert_called_once()
 
 
 class TestKaggleFetcherFindDataSubdir:

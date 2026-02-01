@@ -9,6 +9,7 @@ import logging
 from pathlib import Path
 from typing import Any
 
+import kagglehub
 import pandas as pd
 
 from fast_nfl_mcp.constants import (
@@ -108,8 +109,6 @@ class KaggleFetcher:
         self._check_auth()
 
         try:
-            import kagglehub
-
             logger.info(f"Downloading competition data: {BDB_COMPETITION_HANDLE}")
             self._data_path = Path(
                 kagglehub.competition_download(BDB_COMPETITION_HANDLE)
