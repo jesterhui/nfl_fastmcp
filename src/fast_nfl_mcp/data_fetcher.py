@@ -115,28 +115,44 @@ class DataFetcher:
         if df is None or df.empty:
             return [], []
 
-        # Convert DataFrame to records, handling NaN values
-        # Use 'records' orientation for list of dicts
-        records = df.to_dict(orient="records")
-
-        # Clean up NaN values to None for JSON serialization
-        cleaned_records: list[dict[str, Any]] = []
-        for record in records:
-            cleaned: dict[str, Any] = {}
-            for key, value in record.items():
-                str_key = str(key)
-                if pd.isna(value):
-                    cleaned[str_key] = None
-                elif hasattr(value, "item"):
-                    # Convert numpy types to Python native types
-                    cleaned[str_key] = value.item()
-                elif isinstance(value, pd.Timestamp):
-                    cleaned[str_key] = str(value)
-                else:
-                    cleaned[str_key] = value
-            cleaned_records.append(cleaned)
-
+        # Pre-compute column names once (avoid repeated str() calls in loops)
         columns: list[str] = [str(col) for col in df.columns]
+
+        # Create a working copy for vectorized transformations
+        result_df = df.copy()
+
+        # Vectorized type conversions per column (much faster than per-cell checks)
+        for col in result_df.columns:
+            dtype = result_df[col].dtype
+
+            # Convert Timestamp columns to strings vectorially
+            if pd.api.types.is_datetime64_any_dtype(dtype):
+                result_df[col] = result_df[col].astype(str)
+                # Replace 'NaT' strings with None
+                result_df[col] = result_df[col].replace("NaT", None)
+            # Convert numpy integer types to Python native (preserving NaN as None)
+            elif pd.api.types.is_integer_dtype(dtype):
+                result_df[col] = result_df[col].astype(object)
+                result_df.loc[result_df[col].isna(), col] = None
+            # Convert numpy float types to Python native (preserving NaN as None)
+            elif pd.api.types.is_float_dtype(dtype):
+                mask = result_df[col].isna()
+                result_df[col] = result_df[col].astype(object)
+                result_df.loc[mask, col] = None
+            # Handle string and object dtype columns - replace NaN with None
+            elif pd.api.types.is_string_dtype(dtype) or dtype == object:
+                mask = result_df[col].isna()
+                result_df[col] = result_df[col].astype(object)
+                result_df.loc[mask, col] = None
+
+        # Convert to records - now all values should be JSON-serializable
+        records = result_df.to_dict(orient="records")
+
+        # Ensure all keys are strings (handle non-string column names)
+        cleaned_records: list[dict[str, Any]] = [
+            {str(k): v for k, v in record.items()} for record in records
+        ]
+
         return cleaned_records, columns
 
     def _apply_filters(

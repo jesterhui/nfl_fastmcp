@@ -253,19 +253,25 @@ def lookup_player_impl(
         if truncated:
             result_df = result_df.head(effective_limit)
 
-        # Convert to records, handling NaN values
-        records: list[dict[str, Any]] = []
-        for _, row in result_df.iterrows():
-            record: dict[str, Any] = {}
-            for col in available_cols:
-                value = row[col]
-                if pd.isna(value):
-                    record[col] = None
-                elif hasattr(value, "item"):
-                    record[col] = value.item()
-                else:
-                    record[col] = value
-            records.append(record)
+        # Convert to records using vectorized operations (much faster than iterrows)
+        # Convert numpy types to Python native types by converting to object dtype
+        for col in available_cols:
+            dtype = result_df[col].dtype
+            if (
+                pd.api.types.is_integer_dtype(dtype)
+                or pd.api.types.is_float_dtype(dtype)
+                or pd.api.types.is_string_dtype(dtype)
+                or dtype == object
+            ):
+                mask = result_df[col].isna()
+                result_df[col] = result_df[col].astype(object)
+                result_df.loc[mask, col] = None
+
+        # Use to_dict for efficient conversion
+        records: list[dict[str, Any]] = [
+            {str(k): v for k, v in r.items()}
+            for r in result_df.to_dict(orient="records")
+        ]
 
         # Build warning message
         warning = None
