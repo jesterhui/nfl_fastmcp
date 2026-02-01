@@ -17,6 +17,7 @@ classifiers = [
 dependencies = [
     "fastmcp>=2.0.0",
     "isort>=7.0.0",
+    "kagglehub>=0.3.0",
     "nfl-data-py>=0.3.0",
     "pandas>=2.0.0",
     "pydantic>=2.0.0",
@@ -84,6 +85,10 @@ plugins = ["pydantic.mypy"]
 
 [[tool.mypy.overrides]]
 module = ["nfl_data_py.*"]
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = ["kagglehub.*", "kagglehub"]
 ignore_missing_imports = true
 
 [[tool.mypy.overrides]]

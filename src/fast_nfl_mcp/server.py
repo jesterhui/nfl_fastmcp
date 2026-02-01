@@ -12,8 +12,15 @@ from typing import Annotated, Any
 from fastmcp import Context, FastMCP
 from pydantic import Field
 
+from fast_nfl_mcp.constants import BDB_AVAILABLE_WEEKS
 from fast_nfl_mcp.models import ErrorResponse, SuccessResponse
 from fast_nfl_mcp.schema_manager import SchemaManager
+from fast_nfl_mcp.tools.bdb import (
+    get_bdb_games_impl,
+    get_bdb_players_impl,
+    get_bdb_plays_impl,
+    get_bdb_tracking_impl,
+)
 from fast_nfl_mcp.tools.draft import get_draft_picks_impl
 from fast_nfl_mcp.tools.play_by_play import get_play_by_play_impl
 from fast_nfl_mcp.tools.player_stats import (
@@ -801,6 +808,335 @@ def get_schedules(
         Paginate: get_schedules([2024], offset=100, limit=50)
     """
     return get_schedules_impl(seasons, columns, filters, offset, limit)
+
+
+@mcp.tool()
+def get_bdb_games(
+    columns: Annotated[
+        list[str] | None,
+        Field(
+            description="List of column names to include in output (optional). "
+            "Common columns: game_id, season, week, home_team_abbr, visitor_team_abbr, "
+            "game_date, game_time_eastern"
+        ),
+    ] = None,
+    filters: Annotated[
+        dict[str, Any] | None,
+        Field(
+            description="Filter on any column. Keys are column names, values are "
+            "either a single value or list of acceptable values. "
+            'Example: {"home_team_abbr": "KC", "week": [1, 2, 3]}'
+        ),
+    ] = None,
+    offset: Annotated[
+        int,
+        Field(
+            description="Number of rows to skip for pagination. Use with limit "
+            "to page through results.",
+            ge=0,
+        ),
+    ] = 0,
+    limit: Annotated[
+        int | None,
+        Field(
+            description="Maximum number of rows to return (default 50, max 100).",
+            ge=1,
+            le=100,
+        ),
+    ] = None,
+) -> SuccessResponse | ErrorResponse:
+    """Get NFL Big Data Bowl game metadata.
+
+    Retrieves game information from the NFL Big Data Bowl 2026 dataset.
+    This dataset contains tracking data from the 2023 NFL season.
+
+    IMPORTANT: Requires Kaggle authentication. You must:
+    1. Create ~/.kaggle/access_token with your API token
+    2. Accept competition rules at: https://www.kaggle.com/competitions/nfl-big-data-bowl-2026-analytics/rules
+
+    Key columns include:
+    - game_id: Unique game identifier
+    - season: Season year
+    - week: Week number (1-18)
+    - home_team_abbr: Home team abbreviation
+    - visitor_team_abbr: Away team abbreviation
+    - game_date: Date of the game
+    - game_time_eastern: Game start time (Eastern)
+
+    Args:
+        columns: List of column names to include in output (optional).
+        filters: Optional dict to filter on any column.
+        offset: Number of rows to skip for pagination (default 0).
+        limit: Maximum number of rows to return (default 50, max 100).
+
+    Returns:
+        Game metadata as JSON with up to 50 rows by default.
+
+    Examples:
+        Get all games: get_bdb_games()
+        Filter by team: get_bdb_games(filters={"home_team_abbr": "KC"})
+        Filter by week: get_bdb_games(filters={"week": [1, 2, 3]})
+    """
+    return get_bdb_games_impl(columns, filters, offset, limit)
+
+
+@mcp.tool()
+def get_bdb_plays(
+    game_id: Annotated[
+        int | None,
+        Field(
+            description="Game ID to filter plays for a specific game. "
+            "Use get_bdb_games to find game IDs."
+        ),
+    ] = None,
+    columns: Annotated[
+        list[str] | None,
+        Field(
+            description="List of column names to include in output (optional). "
+            "Common columns: game_id, play_id, play_description, quarter, down, "
+            "yards_to_go, possession_team, defensive_team, yardline_number"
+        ),
+    ] = None,
+    filters: Annotated[
+        dict[str, Any] | None,
+        Field(
+            description="Filter on any column. Keys are column names, values are "
+            "either a single value or list of acceptable values. "
+            'Example: {"possession_team": "KC", "down": [3, 4]}'
+        ),
+    ] = None,
+    offset: Annotated[
+        int,
+        Field(
+            description="Number of rows to skip for pagination. Use with limit "
+            "to page through results.",
+            ge=0,
+        ),
+    ] = 0,
+    limit: Annotated[
+        int | None,
+        Field(
+            description="Maximum number of rows to return (default 50, max 100).",
+            ge=1,
+            le=100,
+        ),
+    ] = None,
+) -> SuccessResponse | ErrorResponse:
+    """Get NFL Big Data Bowl play-level data.
+
+    Retrieves play information from the NFL Big Data Bowl 2026 dataset.
+    Includes play descriptions, game situation, advanced metrics, and outcomes.
+
+    IMPORTANT: Requires Kaggle authentication. You must:
+    1. Create ~/.kaggle/access_token with your API token
+    2. Accept competition rules at: https://www.kaggle.com/competitions/nfl-big-data-bowl-2026-analytics/rules
+
+    Key columns include:
+    - game_id: Game identifier
+    - play_id: Play identifier (unique within a game)
+    - play_description: Text description of the play
+    - quarter, down, yards_to_go: Game situation
+    - possession_team, defensive_team: Teams involved
+    - pass_result, yards_gained: Play outcome
+    - expected_points_added: EPA metric
+
+    Args:
+        game_id: Optional game ID to filter plays for a specific game.
+        columns: List of column names to include in output (optional).
+        filters: Optional dict to filter on any column.
+        offset: Number of rows to skip for pagination (default 0).
+        limit: Maximum number of rows to return (default 50, max 100).
+
+    Returns:
+        Play data as JSON with up to 50 rows by default.
+
+    Examples:
+        Get plays for a game: get_bdb_plays(game_id=2023090700)
+        Filter by down: get_bdb_plays(filters={"down": [3, 4]})
+        Filter by team: get_bdb_plays(filters={"possession_team": "KC"})
+    """
+    return get_bdb_plays_impl(game_id, columns, filters, offset, limit)
+
+
+@mcp.tool()
+def get_bdb_players(
+    columns: Annotated[
+        list[str] | None,
+        Field(
+            description="List of column names to include in output (optional). "
+            "Common columns: nfl_id, player_name, player_position, player_height, player_weight"
+        ),
+    ] = None,
+    filters: Annotated[
+        dict[str, Any] | None,
+        Field(
+            description="Filter on any column. Keys are column names, values are "
+            "either a single value or list of acceptable values. "
+            'Example: {"player_position": ["QB", "WR"]}'
+        ),
+    ] = None,
+    offset: Annotated[
+        int,
+        Field(
+            description="Number of rows to skip for pagination. Use with limit "
+            "to page through results.",
+            ge=0,
+        ),
+    ] = 0,
+    limit: Annotated[
+        int | None,
+        Field(
+            description="Maximum number of rows to return (default 50, max 100).",
+            ge=1,
+            le=100,
+        ),
+    ] = None,
+) -> SuccessResponse | ErrorResponse:
+    """Get NFL Big Data Bowl player information.
+
+    Retrieves player data from the NFL Big Data Bowl 2026 dataset.
+    Includes player names, positions, and physical attributes.
+
+    IMPORTANT: Requires Kaggle authentication. You must:
+    1. Create ~/.kaggle/access_token with your API token
+    2. Accept competition rules at: https://www.kaggle.com/competitions/nfl-big-data-bowl-2026-analytics/rules
+
+    Key columns include:
+    - nfl_id: NFL player identifier
+    - player_name: Player name
+    - player_position: Player position
+    - player_height: Player height
+    - player_weight: Player weight in pounds
+
+    Args:
+        columns: List of column names to include in output (optional).
+        filters: Optional dict to filter on any column.
+        offset: Number of rows to skip for pagination (default 0).
+        limit: Maximum number of rows to return (default 50, max 100).
+
+    Returns:
+        Player data as JSON with up to 50 rows by default.
+
+    Examples:
+        Get all players: get_bdb_players()
+        Filter by position: get_bdb_players(filters={"player_position": ["QB", "WR"]})
+        Select columns: get_bdb_players(columns=["nfl_id", "player_name", "player_position"])
+    """
+    return get_bdb_players_impl(columns, filters, offset, limit)
+
+
+@mcp.tool()
+def get_bdb_tracking(
+    week: Annotated[
+        int,
+        Field(
+            description=f"Week number ({min(BDB_AVAILABLE_WEEKS)}-{max(BDB_AVAILABLE_WEEKS)}). "
+            "Required. Each week is stored in a separate file.",
+            ge=min(BDB_AVAILABLE_WEEKS),
+            le=max(BDB_AVAILABLE_WEEKS),
+        ),
+    ],
+    game_id: Annotated[
+        int | None,
+        Field(
+            description="Game ID to filter. STRONGLY RECOMMENDED to avoid slow queries. "
+            "Use get_bdb_games to find game IDs."
+        ),
+    ] = None,
+    play_id: Annotated[
+        int | None,
+        Field(
+            description="Play ID to filter. Requires game_id to be specified. "
+            "Use get_bdb_plays to find play IDs within a game."
+        ),
+    ] = None,
+    nfl_id: Annotated[
+        int | None,
+        Field(
+            description="NFL player ID to filter for a specific player. "
+            "Use get_bdb_players to find player IDs."
+        ),
+    ] = None,
+    columns: Annotated[
+        list[str] | None,
+        Field(
+            description="List of column names to include in output (optional). "
+            "Common columns: game_id, play_id, nfl_id, player_name, frame_id, "
+            "x, y, s (speed), a (acceleration), o (orientation), dir (direction)"
+        ),
+    ] = None,
+    filters: Annotated[
+        dict[str, Any] | None,
+        Field(
+            description="Filter on any column. Keys are column names, values are "
+            "either a single value or list of acceptable values. "
+            'Example: {"event": "pass_forward"}'
+        ),
+    ] = None,
+    offset: Annotated[
+        int,
+        Field(
+            description="Number of rows to skip for pagination. Use with limit "
+            "to page through results.",
+            ge=0,
+        ),
+    ] = 0,
+    limit: Annotated[
+        int | None,
+        Field(
+            description="Maximum number of rows to return (default 50, max 100). "
+            "Tracking data is very large - use filters to narrow results.",
+            ge=1,
+            le=100,
+        ),
+    ] = None,
+) -> SuccessResponse | ErrorResponse:
+    """Get NFL Big Data Bowl per-frame tracking data.
+
+    Retrieves high-frequency player tracking data from the NFL Big Data Bowl
+    2026 dataset. Each row represents a single frame with player position,
+    speed, acceleration, and orientation.
+
+    IMPORTANT:
+    - Requires Kaggle authentication (~/.kaggle/access_token)
+    - Accept competition rules: https://www.kaggle.com/competitions/nfl-big-data-bowl-2026-analytics/rules
+    - Tracking data is VERY LARGE. Always filter by game_id and/or play_id.
+
+    Key columns include:
+    - game_id: Game identifier
+    - play_id: Play identifier
+    - nfl_id: Player identifier
+    - player_name: Player name
+    - frame_id: Frame number within the play
+    - x: X position on field (0-120 yards, including end zones)
+    - y: Y position on field (0-53.3 yards)
+    - s: Speed in yards/second
+    - a: Acceleration in yards/second^2
+    - o: Orientation (0-360 degrees, direction player is facing)
+    - dir: Direction of movement (0-360 degrees)
+    - player_position, player_role: Player context
+
+    Args:
+        week: Week number (1-18). Required.
+        game_id: Game ID to filter. Strongly recommended.
+        play_id: Play ID to filter. Requires game_id.
+        nfl_id: NFL player ID to filter for a specific player.
+        columns: List of column names to include in output (optional).
+        filters: Optional dict to filter on any column.
+        offset: Number of rows to skip for pagination (default 0).
+        limit: Maximum rows to return (default 50, max 100).
+
+    Returns:
+        Tracking data as JSON with up to 50 rows by default.
+
+    Examples:
+        Get tracking for a play: get_bdb_tracking(week=1, game_id=2023090700, play_id=101)
+        Get specific player: get_bdb_tracking(week=1, game_id=2023090700, nfl_id=43290)
+        Filter by position: get_bdb_tracking(week=1, game_id=2023090700, filters={"player_position": "QB"})
+    """
+    return get_bdb_tracking_impl(
+        week, game_id, play_id, nfl_id, columns, filters, offset, limit
+    )
 
 
 def main() -> None:
