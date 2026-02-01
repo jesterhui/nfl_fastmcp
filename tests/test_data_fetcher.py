@@ -509,17 +509,17 @@ class TestDataFetcherErrorHandling:
             assert response.warning is not None
             assert "Invalid parameters" in response.warning
 
-    def test_generic_exception_returns_error_response(self) -> None:
-        """Test that unexpected exceptions return ErrorResponse."""
+    def test_runtime_error_returns_error_response(self) -> None:
+        """Test that RuntimeError returns ErrorResponse."""
 
-        def raise_generic_error(_: object) -> pd.DataFrame:
+        def raise_runtime_error(_: object) -> pd.DataFrame:
             raise RuntimeError("Something went wrong")
 
         with patch.dict(
             "fast_nfl_mcp.data_fetcher.DATASET_DEFINITIONS",
             {
                 "broken_dataset": (
-                    raise_generic_error,
+                    raise_runtime_error,
                     "Will break",
                     True,
                     2024,
@@ -529,6 +529,125 @@ class TestDataFetcherErrorHandling:
         ):
             fetcher = DataFetcher()
             response = fetcher.fetch("broken_dataset")
+
+            assert isinstance(response, ErrorResponse)
+            assert response.success is False
+            assert "Error fetching" in response.error
+
+    def test_os_error_returns_error_response(self) -> None:
+        """Test that OSError returns ErrorResponse with system error message."""
+
+        def raise_os_error(_: object) -> pd.DataFrame:
+            raise OSError("Disk I/O error")
+
+        with patch.dict(
+            "fast_nfl_mcp.data_fetcher.DATASET_DEFINITIONS",
+            {
+                "broken_dataset": (
+                    raise_os_error,
+                    "Will break",
+                    True,
+                    2024,
+                ),
+            },
+            clear=True,
+        ):
+            fetcher = DataFetcher()
+            response = fetcher.fetch("broken_dataset")
+
+            assert isinstance(response, ErrorResponse)
+            assert response.success is False
+            assert "System error" in response.error
+
+    def test_keyboard_interrupt_propagates(self) -> None:
+        """Test that KeyboardInterrupt is not caught and propagates correctly."""
+
+        def raise_keyboard_interrupt(_: object) -> pd.DataFrame:
+            raise KeyboardInterrupt()
+
+        with patch.dict(
+            "fast_nfl_mcp.data_fetcher.DATASET_DEFINITIONS",
+            {
+                "interrupt_dataset": (
+                    raise_keyboard_interrupt,
+                    "Will interrupt",
+                    True,
+                    2024,
+                ),
+            },
+            clear=True,
+        ):
+            fetcher = DataFetcher()
+            with pytest.raises(KeyboardInterrupt):
+                fetcher.fetch("interrupt_dataset")
+
+    def test_system_exit_propagates(self) -> None:
+        """Test that SystemExit is not caught and propagates correctly."""
+
+        def raise_system_exit(_: object) -> pd.DataFrame:
+            raise SystemExit(1)
+
+        with patch.dict(
+            "fast_nfl_mcp.data_fetcher.DATASET_DEFINITIONS",
+            {
+                "exit_dataset": (
+                    raise_system_exit,
+                    "Will exit",
+                    True,
+                    2024,
+                ),
+            },
+            clear=True,
+        ):
+            fetcher = DataFetcher()
+            with pytest.raises(SystemExit):
+                fetcher.fetch("exit_dataset")
+
+    def test_attribute_error_returns_error_response(self) -> None:
+        """Test that AttributeError returns ErrorResponse (not crash)."""
+
+        def raise_attribute_error(_: object) -> pd.DataFrame:
+            raise AttributeError("object has no attribute 'foo'")
+
+        with patch.dict(
+            "fast_nfl_mcp.data_fetcher.DATASET_DEFINITIONS",
+            {
+                "buggy_dataset": (
+                    raise_attribute_error,
+                    "Will fail",
+                    True,
+                    2024,
+                ),
+            },
+            clear=True,
+        ):
+            fetcher = DataFetcher()
+            response = fetcher.fetch("buggy_dataset")
+
+            assert isinstance(response, ErrorResponse)
+            assert response.success is False
+            assert "Error fetching" in response.error
+
+    def test_type_error_returns_error_response(self) -> None:
+        """Test that TypeError returns ErrorResponse (not crash)."""
+
+        def raise_type_error(_: object) -> pd.DataFrame:
+            raise TypeError("unsupported operand type")
+
+        with patch.dict(
+            "fast_nfl_mcp.data_fetcher.DATASET_DEFINITIONS",
+            {
+                "buggy_dataset": (
+                    raise_type_error,
+                    "Will fail",
+                    True,
+                    2024,
+                ),
+            },
+            clear=True,
+        ):
+            fetcher = DataFetcher()
+            response = fetcher.fetch("buggy_dataset")
 
             assert isinstance(response, ErrorResponse)
             assert response.success is False

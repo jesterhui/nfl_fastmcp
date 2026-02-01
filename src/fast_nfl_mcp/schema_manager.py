@@ -280,7 +280,18 @@ class SchemaManager:
             )
             return schema
 
+        except (OSError, ConnectionError, TimeoutError) as e:
+            # Network and I/O errors are expected failure modes
+            logger.error(f"Failed to load schema for {dataset_name}: {e}")
+            return None
+
+        except (ValueError, KeyError, RuntimeError) as e:
+            # Data validation and runtime errors from the library
+            logger.error(f"Failed to load schema for {dataset_name}: {e}")
+            return None
+
         except Exception as e:
+            # Catch-all for unexpected errors
             logger.error(f"Failed to load schema for {dataset_name}: {e}")
             return None
 
@@ -316,7 +327,18 @@ class SchemaManager:
                 except TimeoutError:
                     logger.error(f"Timeout loading schema for {dataset_name}")
                     self._failed_datasets.add(dataset_name)
+                except (
+                    OSError,
+                    ConnectionError,
+                    ValueError,
+                    KeyError,
+                    RuntimeError,
+                ) as e:
+                    # Expected failure modes from data loading
+                    logger.error(f"Error loading schema for {dataset_name}: {e}")
+                    self._failed_datasets.add(dataset_name)
                 except Exception as e:
+                    # Catch-all for unexpected errors
                     logger.error(f"Error loading schema for {dataset_name}: {e}")
                     self._failed_datasets.add(dataset_name)
 

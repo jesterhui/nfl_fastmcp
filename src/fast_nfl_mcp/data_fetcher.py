@@ -328,6 +328,18 @@ class DataFetcher:
                 warning=f"Invalid parameters for {dataset}: {str(e)}",
             )
 
+        except OSError as e:
+            # Catch OS-level errors (includes IOError, socket errors, etc.)
+            logger.error(f"OS error fetching {dataset}: {e}")
+            return create_error_response(
+                error=f"System error fetching {dataset}: {str(e)}"
+            )
+
+        except RuntimeError as e:
+            # Catch runtime errors from the nfl_data_py library
+            logger.error(f"Runtime error fetching {dataset}: {e}")
+            return create_error_response(error=f"Error fetching {dataset}: {str(e)}")
+
         except Exception as e:
             # Catch-all for unexpected errors
             logger.error(f"Unexpected error fetching {dataset}: {e}")

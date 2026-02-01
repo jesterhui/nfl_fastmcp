@@ -284,6 +284,24 @@ def lookup_player_impl(
             warning=warning,
         )
 
-    except Exception as e:
+    except (OSError, ConnectionError, TimeoutError) as e:
+        # Network and I/O errors
+        logger.error(f"Network error looking up player '{name}': {e}")
+        return create_error_response(error=f"Network error looking up player: {str(e)}")
+
+    except KeyError as e:
+        # Missing expected columns in the data
+        logger.error(f"Data format error looking up player '{name}': {e}")
+        return create_error_response(
+            error=f"Data format error: missing expected column {str(e)}"
+        )
+
+    except (ValueError, RuntimeError) as e:
+        # Validation and runtime errors from the library
         logger.error(f"Error looking up player '{name}': {e}")
+        return create_error_response(error=f"Error looking up player: {str(e)}")
+
+    except Exception as e:
+        # Catch-all for unexpected errors
+        logger.error(f"Unexpected error looking up player '{name}': {e}")
         return create_error_response(error=f"Error looking up player: {str(e)}")
