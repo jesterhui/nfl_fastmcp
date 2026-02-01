@@ -214,7 +214,7 @@ class TestDataFetcherFetchWithMocks:
             assert loader_called_with == [[2023]]
 
     def test_fetch_enforces_row_limit(self, large_dataframe: pd.DataFrame) -> None:
-        """Test that fetch enforces the 10-row limit."""
+        """Test that fetch enforces the DEFAULT_MAX_ROWS limit."""
         with patch.dict(
             "fast_nfl_mcp.data_fetcher.DATASET_DEFINITIONS",
             {
