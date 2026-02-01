@@ -11,6 +11,7 @@ import pytest
 
 from fast_nfl_mcp.schema_manager import SchemaManager
 from fast_nfl_mcp.server import lifespan, main, mcp
+from fast_nfl_mcp.types import DatasetDefinition
 
 
 class TestServerInitialization:
@@ -46,10 +47,10 @@ class TestLifespan:
         """Create minimal mock dataset definitions."""
         mock_df = pd.DataFrame({"col1": [1, 2, 3]})
         return {
-            "test_dataset": (
-                lambda _: mock_df,
-                "Test dataset",
-                True,
+            "test_dataset": DatasetDefinition(
+                loader=lambda _: mock_df,
+                description="Test dataset",
+                supports_seasons=True,
             ),
         }
 
@@ -105,10 +106,10 @@ class TestLifespan:
             raise RuntimeError("Network error")
 
         failing_definitions = {
-            "failing_dataset": (
-                raise_error,
-                "Will fail",
-                True,
+            "failing_dataset": DatasetDefinition(
+                loader=raise_error,
+                description="Will fail",
+                supports_seasons=True,
             ),
         }
 
@@ -151,10 +152,10 @@ class TestMCPToolFunctions:
         """Create a preloaded SchemaManager."""
         mock_df = pd.DataFrame({"col1": [1, 2, 3]})
         mock_definitions = {
-            "test_dataset": (
-                lambda _: mock_df,
-                "Test dataset",
-                True,
+            "test_dataset": DatasetDefinition(
+                loader=lambda _: mock_df,
+                description="Test dataset",
+                supports_seasons=True,
             ),
         }
 
@@ -173,10 +174,10 @@ class TestMCPToolFunctions:
 
         mock_df = pd.DataFrame({"col1": [1, 2, 3]})
         mock_definitions = {
-            "test_dataset": (
-                lambda _: mock_df,
-                "Test dataset",
-                True,
+            "test_dataset": DatasetDefinition(
+                loader=lambda _: mock_df,
+                description="Test dataset",
+                supports_seasons=True,
             ),
         }
 
@@ -196,10 +197,10 @@ class TestMCPToolFunctions:
 
         mock_df = pd.DataFrame({"col1": [1, 2, 3]})
         mock_definitions = {
-            "test_dataset": (
-                lambda _: mock_df,
-                "Test dataset",
-                True,
+            "test_dataset": DatasetDefinition(
+                loader=lambda _: mock_df,
+                description="Test dataset",
+                supports_seasons=True,
             ),
         }
 
