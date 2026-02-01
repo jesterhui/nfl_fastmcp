@@ -38,7 +38,7 @@ class DataFetcher:
     - Standardized response formatting using Pydantic models
 
     Attributes:
-        MAX_ROWS: Maximum number of rows to return (default 10).
+        MAX_ROWS: Maximum number of rows to return (default 100).
     """
 
     MAX_ROWS: int = DEFAULT_MAX_ROWS
