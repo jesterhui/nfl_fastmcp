@@ -145,15 +145,13 @@ class DataFetcher:
                 result_df[col] = result_df[col].astype(str)
                 # Replace 'NaT' strings with None
                 result_df[col] = result_df[col].replace("NaT", None)
-            # Convert numpy integer types to Python native (preserving NaN as None)
-            elif pd.api.types.is_integer_dtype(dtype):
-                result_df[col] = result_df[col].astype(object)
-                result_df.loc[result_df[col].isna(), col] = None
-            # Convert numpy float types to Python native (preserving NaN as None)
-            elif pd.api.types.is_float_dtype(dtype):
-                mask = result_df[col].isna()
-                result_df[col] = result_df[col].astype(object)
-                result_df.loc[mask, col] = None
+            # Convert numpy integer/float types to Python native (preserving NaN as None)
+            # Must use list comprehension + .item() to ensure native Python types
+            elif pd.api.types.is_integer_dtype(dtype) or pd.api.types.is_float_dtype(
+                dtype
+            ):
+                values = [_convert_object_value(v) for v in result_df[col]]
+                result_df[col] = pd.Series(values, index=result_df.index, dtype=object)
             # Handle string and object dtype columns - replace NaN with None
             # and convert any embedded Timestamps/numpy scalars
             # Must rebuild Series from list to preserve None (pandas converts None to nan)
