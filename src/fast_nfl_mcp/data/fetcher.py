@@ -115,6 +115,172 @@ class NFLDataPyFetcher:
                 invalid_filters.append(column)
         return df, invalid_filters
 
+    def _validate_dataset(
+        self, dataset: str
+    ) -> tuple[DatasetDefinition | None, ErrorResponse | None]:
+        """Validate the dataset name and return its definition.
+
+        Args:
+            dataset: The name of the dataset to validate.
+
+        Returns:
+            A tuple of (DatasetDefinition, None) if valid, or (None, ErrorResponse) if invalid.
+        """
+        definition = self._get_dataset_loader(dataset)
+        if definition is None:
+            valid_datasets = list(DATASET_DEFINITIONS.keys())
+            error = create_error_response(
+                error=f"Unknown dataset: '{dataset}'. "
+                f"Valid datasets are: {', '.join(sorted(valid_datasets))}"
+            )
+            return None, error
+        return definition, None
+
+    def _handle_empty_dataframe(self, dataset: str) -> SuccessResponse:
+        """Create a response for empty or None DataFrame results.
+
+        Args:
+            dataset: The name of the dataset that returned no data.
+
+        Returns:
+            A SuccessResponse indicating no data was found.
+        """
+        logger.warning(f"Dataset {dataset} returned no data")
+        return create_success_response(
+            data=[],
+            total_available=0,
+            truncated=False,
+            columns=[],
+            warning=f"No data found for {dataset} with the given parameters.",
+        )
+
+    def _handle_empty_filter_results(
+        self, df: pd.DataFrame, invalid_filter_cols: list[str]
+    ) -> SuccessResponse:
+        """Create a response when filters produce no matching rows.
+
+        Args:
+            df: The empty DataFrame (with column info preserved).
+            invalid_filter_cols: List of filter columns that didn't exist.
+
+        Returns:
+            A SuccessResponse indicating no data matched the filters.
+        """
+        filter_warning = "No data matched the specified filters."
+        if invalid_filter_cols:
+            filter_warning += (
+                f" Note: The following filter columns do not exist "
+                f"in the dataset and were ignored: {invalid_filter_cols}"
+            )
+        return create_success_response(
+            data=[],
+            total_available=0,
+            truncated=False,
+            columns=[str(col) for col in df.columns],
+            warning=filter_warning,
+        )
+
+    def _validate_columns(
+        self, df: pd.DataFrame, columns: list[str], dataset: str
+    ) -> tuple[pd.DataFrame | None, ErrorResponse | None]:
+        """Validate and select requested columns from the DataFrame.
+
+        Args:
+            df: The DataFrame to select columns from.
+            columns: List of column names to select.
+            dataset: The dataset name (for error messages).
+
+        Returns:
+            A tuple of (filtered DataFrame, None) if valid columns exist,
+            or (None, ErrorResponse) if validation fails.
+        """
+        if not columns:
+            return None, create_error_response(
+                error="Empty columns list provided. "
+                "Please specify at least one column name."
+            )
+
+        available_cols = set(df.columns)
+        valid_cols = [c for c in columns if c in available_cols]
+        invalid_cols = [c for c in columns if c not in available_cols]
+
+        if not valid_cols:
+            return None, create_error_response(
+                error=f"None of the requested columns exist: {invalid_cols}. "
+                f"Use describe_dataset('{dataset}') to see available columns."
+            )
+
+        if invalid_cols:
+            logger.warning(f"Requested columns not found: {invalid_cols}")
+
+        return df[valid_cols], None
+
+    def _paginate_dataframe(
+        self, df: pd.DataFrame, offset: int, limit: int
+    ) -> tuple[pd.DataFrame, int, bool]:
+        """Apply pagination to a DataFrame.
+
+        Args:
+            df: The DataFrame to paginate.
+            offset: Number of rows to skip.
+            limit: Maximum number of rows to return.
+
+        Returns:
+            A tuple of (paginated DataFrame, total rows before pagination, was truncated).
+        """
+        total_available = len(df)
+
+        # Apply offset first
+        if offset > 0:
+            df = df.iloc[offset:]
+
+        # Check if results will be truncated
+        rows_after_offset = len(df)
+        truncated = rows_after_offset > limit
+
+        # Apply row limit
+        if truncated:
+            df = df.head(limit)
+
+        return df, total_available, truncated
+
+    def _build_warning_message(
+        self,
+        invalid_filter_cols: list[str],
+        truncated: bool,
+        offset: int,
+        effective_limit: int,
+        total_available: int,
+    ) -> str | None:
+        """Build a warning message from various conditions.
+
+        Args:
+            invalid_filter_cols: List of filter columns that didn't exist.
+            truncated: Whether results were truncated.
+            offset: The offset used for pagination.
+            effective_limit: The row limit applied.
+            total_available: Total rows before truncation.
+
+        Returns:
+            A warning message string, or None if no warnings.
+        """
+        warnings: list[str] = []
+
+        if invalid_filter_cols:
+            warnings.append(
+                f"The following filter columns do not exist in the dataset "
+                f"and were ignored: {invalid_filter_cols}"
+            )
+
+        if truncated:
+            next_offset = offset + effective_limit
+            warnings.append(
+                f"Results truncated. Showing {effective_limit} of {total_available} total rows "
+                f"(offset: {offset}). Use offset={next_offset} to get the next page."
+            )
+
+        return " ".join(warnings) if warnings else None
+
     def fetch(
         self,
         dataset: str,
@@ -151,126 +317,66 @@ class NFLDataPyFetcher:
             >>> response = fetcher.fetch("play_by_play", {"seasons": [2024]}, offset=10, limit=10)
             >>> response = fetcher.fetch("team_descriptions")
         """
-        if params is None:
-            params = {}
-        if filters is None:
-            filters = {}
+        # Initialize defaults
+        params = params or {}
+        filters = filters or {}
 
-        # Validate dataset name
-        definition = self._get_dataset_loader(dataset)
-        if definition is None:
-            valid_datasets = list(DATASET_DEFINITIONS.keys())
-            return create_error_response(
-                error=f"Unknown dataset: '{dataset}'. "
-                f"Valid datasets are: {', '.join(sorted(valid_datasets))}"
-            )
+        # Phase 1: Validate dataset
+        definition, error = self._validate_dataset(dataset)
+        if error:
+            return error
+        assert definition is not None  # Guaranteed by _validate_dataset
 
-        # Build parameters for the loader
+        # Phase 2: Load data
         loader_param = self._build_params_for_loader(
             definition.supports_seasons, params
         )
 
         try:
             logger.info(f"Fetching data for {dataset} with params: {params}")
-
-            # Call the loader function
             df = definition.loader(loader_param)
 
-            # Handle None or empty DataFrame
+            # Phase 3: Handle empty data
             if df is None or df.empty:
-                logger.warning(f"Dataset {dataset} returned no data")
-                return create_success_response(
-                    data=[],
-                    total_available=0,
-                    truncated=False,
-                    columns=[],
-                    warning=f"No data found for {dataset} with the given parameters.",
-                )
+                return self._handle_empty_dataframe(dataset)
 
-            # Apply filters before truncation
+            # Phase 4: Apply filters
             invalid_filter_cols: list[str] = []
             if filters:
                 df, invalid_filter_cols = self._apply_filters(df, filters)
                 if df.empty:
-                    filter_warning = "No data matched the specified filters."
-                    if invalid_filter_cols:
-                        filter_warning += (
-                            f" Note: The following filter columns do not exist "
-                            f"in the dataset and were ignored: {invalid_filter_cols}"
-                        )
-                    return create_success_response(
-                        data=[],
-                        total_available=0,
-                        truncated=False,
-                        columns=[str(col) for col in df.columns],
-                        warning=filter_warning,
-                    )
+                    return self._handle_empty_filter_results(df, invalid_filter_cols)
 
-            # Select specific columns if requested
+            # Phase 5: Select columns
             if columns is not None:
-                if not columns:
-                    return create_error_response(
-                        error="Empty columns list provided. "
-                        "Please specify at least one column name."
-                    )
-                available_cols = set(df.columns)
-                valid_cols = [c for c in columns if c in available_cols]
-                invalid_cols = [c for c in columns if c not in available_cols]
-                if not valid_cols:
-                    return create_error_response(
-                        error=f"None of the requested columns exist: {invalid_cols}. "
-                        f"Use describe_dataset('{dataset}') to see available columns."
-                    )
-                df = df[valid_cols]
-                if invalid_cols:
-                    logger.warning(f"Requested columns not found: {invalid_cols}")
+                selected_df, error = self._validate_columns(df, columns, dataset)
+                if error:
+                    return error
+                assert selected_df is not None  # Guaranteed by _validate_columns
+                df = selected_df
 
-            # Get total count before pagination
-            total_available = len(df)
-
-            # Determine effective limit
+            # Phase 6: Paginate
             effective_limit = limit if limit is not None else self._max_rows
+            df, total_available, truncated = self._paginate_dataframe(
+                df, offset, effective_limit
+            )
 
-            # Apply offset first
             if offset > 0:
-                df = df.iloc[offset:]
                 logger.info(f"Applied offset {offset} to {dataset}")
-
-            # Check if results will be truncated
-            rows_after_offset = len(df)
-            truncated = rows_after_offset > effective_limit
-
-            # Apply row limit
             if truncated:
-                df = df.head(effective_limit)
-                logger.info(
-                    f"Truncated {dataset} from {rows_after_offset} "
-                    f"to {effective_limit} rows"
-                )
+                logger.info(f"Truncated {dataset} to {effective_limit} rows")
 
-            # Convert to records
-            records, columns = convert_dataframe_to_records(df)
-
-            # Build warning message
-            warnings: list[str] = []
-            if invalid_filter_cols:
-                warnings.append(
-                    f"The following filter columns do not exist in the dataset "
-                    f"and were ignored: {invalid_filter_cols}"
-                )
-            if truncated:
-                next_offset = offset + effective_limit
-                warnings.append(
-                    f"Results truncated. Showing {effective_limit} of {total_available} total rows "
-                    f"(offset: {offset}). Use offset={next_offset} to get the next page."
-                )
-            warning = " ".join(warnings) if warnings else None
+            # Phase 7: Build response
+            records, result_columns = convert_dataframe_to_records(df)
+            warning = self._build_warning_message(
+                invalid_filter_cols, truncated, offset, effective_limit, total_available
+            )
 
             return create_success_response(
                 data=records,
                 total_available=total_available,
                 truncated=truncated,
-                columns=columns,
+                columns=result_columns,
                 warning=warning,
             )
 
@@ -288,7 +394,6 @@ class NFLDataPyFetcher:
             )
 
         except ValueError as e:
-            # Invalid parameters typically raise ValueError
             logger.warning(f"Invalid parameters for {dataset}: {e}")
             return create_success_response(
                 data=[],
@@ -299,19 +404,16 @@ class NFLDataPyFetcher:
             )
 
         except OSError as e:
-            # Catch OS-level errors (includes IOError, socket errors, etc.)
             logger.error(f"OS error fetching {dataset}: {e}")
             return create_error_response(
                 error=f"System error fetching {dataset}: {str(e)}"
             )
 
         except RuntimeError as e:
-            # Catch runtime errors from the nfl_data_py library
             logger.error(f"Runtime error fetching {dataset}: {e}")
             return create_error_response(error=f"Error fetching {dataset}: {str(e)}")
 
         except Exception as e:
-            # Catch-all for unexpected errors
             logger.error(f"Unexpected error fetching {dataset}: {e}")
             return create_error_response(error=f"Error fetching {dataset}: {str(e)}")
 
