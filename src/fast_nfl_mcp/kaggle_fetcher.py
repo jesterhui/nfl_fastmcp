@@ -228,13 +228,20 @@ class KaggleFetcher:
         return self._load_csv("supplementary_data.csv")
 
     def get_players(self) -> pd.DataFrame:
-        """Get unique players from tracking data.
+        """Get unique players from tracking data across all weeks.
+
+        Aggregates player information from all available weeks to ensure
+        players who didn't appear in week 1 (bye, injury, late-season
+        signing, etc.) are included.
 
         Returns:
             DataFrame containing player information.
         """
-        # Load week 1 tracking to get player info
-        df = self._load_csv("input_2023_w01.csv", subdir="train")
+        # Check cache first
+        cache_key = "_players_aggregated"
+        if cache_key in self._cache:
+            return self._cache[cache_key]
+
         player_cols = [
             "nfl_id",
             "player_name",
@@ -243,8 +250,31 @@ class KaggleFetcher:
             "player_birth_date",
             "player_position",
         ]
-        available_cols = [c for c in player_cols if c in df.columns]
-        return df[available_cols].drop_duplicates(subset=["nfl_id"])
+
+        # Aggregate players from all weeks
+        all_players: list[pd.DataFrame] = []
+        for week in BDB_AVAILABLE_WEEKS:
+            try:
+                df = self._load_csv(f"input_2023_w{week:02d}.csv", subdir="train")
+                available_cols = [c for c in player_cols if c in df.columns]
+                if available_cols and "nfl_id" in available_cols:
+                    week_players = df[available_cols].drop_duplicates(subset=["nfl_id"])
+                    all_players.append(week_players)
+            except KaggleCompetitionError:
+                # Week file doesn't exist, skip it
+                continue
+
+        if not all_players:
+            # Return empty DataFrame with expected columns
+            return pd.DataFrame(columns=player_cols)
+
+        # Combine and deduplicate
+        combined = pd.concat(all_players, ignore_index=True)
+        result = combined.drop_duplicates(subset=["nfl_id"])
+
+        # Cache the result
+        self._cache[cache_key] = result
+        return result
 
     def get_tracking(self, week: int) -> pd.DataFrame:
         """Get tracking data for a specific week.

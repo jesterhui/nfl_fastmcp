@@ -243,6 +243,25 @@ class TestKaggleFetcherDataMethods:
         )
         tracking_df.to_csv(train_dir / "input_2023_w01.csv", index=False)
 
+        # Create week 2 tracking with a different player (simulates late signing)
+        tracking_df_w2 = pd.DataFrame(
+            {
+                "game_id": [2023091400] * 10,
+                "play_id": [1] * 10,
+                "nfl_id": [47177] * 10,  # Different player
+                "player_name": ["Josh Allen"] * 10,
+                "player_position": ["QB"] * 10,
+                "player_height": ["6-5"] * 10,
+                "player_weight": [237] * 10,
+                "player_birth_date": ["1996-05-21"] * 10,
+                "frame_id": list(range(1, 11)),
+                "x": [50.0] * 10,
+                "y": [26.5] * 10,
+                "s": [6.0] * 10,
+            }
+        )
+        tracking_df_w2.to_csv(train_dir / "input_2023_w02.csv", index=False)
+
         return fetcher
 
     def test_get_games(self, mock_fetcher: KaggleFetcher) -> None:
@@ -260,11 +279,16 @@ class TestKaggleFetcherDataMethods:
         assert "play_description" in df.columns
 
     def test_get_players(self, mock_fetcher: KaggleFetcher) -> None:
-        """Test loading players data."""
+        """Test loading players data aggregates across all weeks."""
         df = mock_fetcher.get_players()
-        assert len(df) == 1  # 1 unique player in tracking data
+        # 2 unique players: Mahomes (week 1) + Allen (week 2)
+        assert len(df) == 2
         assert "nfl_id" in df.columns
         assert "player_name" in df.columns
+        # Verify both players are present
+        player_ids = set(df["nfl_id"].tolist())
+        assert 43290 in player_ids  # Mahomes
+        assert 47177 in player_ids  # Allen
 
     def test_get_tracking_valid_week(self, mock_fetcher: KaggleFetcher) -> None:
         """Test loading tracking data for valid week."""
