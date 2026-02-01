@@ -679,6 +679,55 @@ class TestDataFetcherDataConversion:
             json_str = json.dumps(response.model_dump())
             assert isinstance(json_str, str)
 
+    def test_nullable_boolean_converted_to_native(self) -> None:
+        """Test that nullable boolean columns with pd.NA are converted properly."""
+        # Create a DataFrame with nullable boolean dtype (BooleanDtype)
+        df = pd.DataFrame(
+            {
+                "bool_col": pd.array([True, False, pd.NA], dtype="boolean"),
+            }
+        )
+
+        with patch.dict(
+            "fast_nfl_mcp.data_fetcher.DATASET_DEFINITIONS",
+            {
+                "test": (lambda _: df, "Test", True, 2024),
+            },
+            clear=True,
+        ):
+            fetcher = DataFetcher()
+            response = fetcher.fetch("test")
+
+            assert isinstance(response, SuccessResponse)
+            # True/False should be native Python bool
+            assert response.data[0]["bool_col"] is True
+            assert response.data[1]["bool_col"] is False
+            # pd.NA should be converted to None
+            assert response.data[2]["bool_col"] is None
+
+    def test_nullable_boolean_is_json_serializable(self) -> None:
+        """Test that nullable boolean columns can be JSON serialized."""
+        df = pd.DataFrame(
+            {
+                "bool_col": pd.array([True, False, pd.NA], dtype="boolean"),
+                "int_col": [1, 2, 3],
+            }
+        )
+
+        with patch.dict(
+            "fast_nfl_mcp.data_fetcher.DATASET_DEFINITIONS",
+            {
+                "test": (lambda _: df, "Test", True, 2024),
+            },
+            clear=True,
+        ):
+            fetcher = DataFetcher()
+            response = fetcher.fetch("test")
+
+            # Should not raise - pd.NA would cause TypeError without fix
+            json_str = json.dumps(response.model_dump())
+            assert isinstance(json_str, str)
+
 
 class TestDataFetcherParamsHandling:
     """Tests for parameter handling in fetch."""

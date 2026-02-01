@@ -152,6 +152,11 @@ class DataFetcher:
             ):
                 values = [_convert_object_value(v) for v in result_df[col]]
                 result_df[col] = pd.Series(values, index=result_df.index, dtype=object)
+            # Convert boolean columns - handles nullable BooleanDtype with pd.NA
+            # Must convert to object dtype to preserve None values
+            elif pd.api.types.is_bool_dtype(dtype):
+                values = [_convert_object_value(v) for v in result_df[col]]
+                result_df[col] = pd.Series(values, index=result_df.index, dtype=object)
             # Handle string and object dtype columns - replace NaN with None
             # and convert any embedded Timestamps/numpy scalars
             # Must rebuild Series from list to preserve None (pandas converts None to nan)
