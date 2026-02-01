@@ -22,6 +22,21 @@ from fast_nfl_mcp.schema_manager import DATASET_DEFINITIONS
 logger = logging.getLogger(__name__)
 
 
+def _convert_object_value(val: Any) -> Any:
+    """Convert non-serializable values in object columns to JSON-safe types.
+
+    Handles pd.Timestamp, numpy scalars, and NaN values that may appear
+    in object-dtype columns (common after merges or with mixed-type data).
+    """
+    if pd.isna(val):
+        return None
+    if isinstance(val, pd.Timestamp):
+        return str(val)
+    if hasattr(val, "item"):
+        return val.item()
+    return val
+
+
 class DataFetchError(Exception):
     """Exception raised when data fetching fails."""
 
@@ -140,10 +155,11 @@ class DataFetcher:
                 result_df[col] = result_df[col].astype(object)
                 result_df.loc[mask, col] = None
             # Handle string and object dtype columns - replace NaN with None
+            # and convert any embedded Timestamps/numpy scalars
+            # Must rebuild Series from list to preserve None (pandas converts None to nan)
             elif pd.api.types.is_string_dtype(dtype) or dtype == object:
-                mask = result_df[col].isna()
-                result_df[col] = result_df[col].astype(object)
-                result_df.loc[mask, col] = None
+                values = [_convert_object_value(v) for v in result_df[col]]
+                result_df[col] = pd.Series(values, index=result_df.index, dtype=object)
 
         # Convert to records - now all values should be JSON-serializable
         records = result_df.to_dict(orient="records")
