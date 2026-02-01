@@ -9,8 +9,8 @@ from unittest.mock import patch
 import pandas as pd
 import pytest
 
-from fast_nfl_mcp.models import ColumnSchema, DatasetSchema, ErrorResponse
-from fast_nfl_mcp.schema_manager import DATASET_DEFINITIONS, SchemaManager
+from fast_nfl_mcp.core.models import ColumnSchema, DatasetSchema, ErrorResponse
+from fast_nfl_mcp.data.schema import DATASET_DEFINITIONS, SchemaManager
 from fast_nfl_mcp.tools.utilities import describe_dataset_impl, list_datasets_impl
 
 
@@ -62,12 +62,12 @@ class TestListDatasets:
 
     def test_status_available_after_preload(self) -> None:
         """Test that status is 'available' after successful preload."""
-        from fast_nfl_mcp.types import DatasetDefinition
+        from fast_nfl_mcp.utils.types import DatasetDefinition
 
         mock_df = pd.DataFrame({"col1": [1, 2, 3]})
 
         with patch.dict(
-            "fast_nfl_mcp.schema_manager.DATASET_DEFINITIONS",
+            "fast_nfl_mcp.data.schema.DATASET_DEFINITIONS",
             {
                 "test_dataset": DatasetDefinition(
                     loader=lambda _: mock_df,
@@ -98,13 +98,13 @@ class TestListDatasets:
 
     def test_status_unavailable_for_failed_datasets(self) -> None:
         """Test that status is 'unavailable' for failed datasets."""
-        from fast_nfl_mcp.types import DatasetDefinition
+        from fast_nfl_mcp.utils.types import DatasetDefinition
 
         def raise_error(_: object) -> pd.DataFrame:
             raise Exception("Network error")
 
         with patch.dict(
-            "fast_nfl_mcp.schema_manager.DATASET_DEFINITIONS",
+            "fast_nfl_mcp.data.schema.DATASET_DEFINITIONS",
             {
                 "failing_dataset": DatasetDefinition(
                     loader=raise_error,
@@ -366,12 +366,12 @@ class TestUtilitiesIntegration:
 
     def test_list_then_describe_workflow(self) -> None:
         """Test the typical workflow: list datasets, then describe one."""
-        from fast_nfl_mcp.types import DatasetDefinition
+        from fast_nfl_mcp.utils.types import DatasetDefinition
 
         mock_df = pd.DataFrame({"col1": [1, 2], "col2": ["a", "b"]})
 
         with patch.dict(
-            "fast_nfl_mcp.schema_manager.DATASET_DEFINITIONS",
+            "fast_nfl_mcp.data.schema.DATASET_DEFINITIONS",
             {
                 "test_dataset": DatasetDefinition(
                     loader=lambda _: mock_df,

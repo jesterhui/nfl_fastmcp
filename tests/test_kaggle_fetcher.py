@@ -10,7 +10,8 @@ from unittest.mock import patch
 import pandas as pd
 import pytest
 
-from fast_nfl_mcp.kaggle_fetcher import (
+from fast_nfl_mcp.core.models import ErrorResponse, SuccessResponse
+from fast_nfl_mcp.data.kaggle import (
     KaggleAuthError,
     KaggleCompetitionError,
     KaggleFetcher,
@@ -18,7 +19,6 @@ from fast_nfl_mcp.kaggle_fetcher import (
     fetch_bdb_data,
     get_fetcher,
 )
-from fast_nfl_mcp.models import ErrorResponse, SuccessResponse
 
 
 class TestKaggleFetcherAuth:
@@ -131,7 +131,7 @@ class TestKaggleFetcherDownload:
         fetcher._auth_valid = True
 
         with patch(
-            "fast_nfl_mcp.kaggle_fetcher.kagglehub.competition_download"
+            "fast_nfl_mcp.data.kaggle.kagglehub.competition_download"
         ) as mock_download:
             mock_download.side_effect = Exception("403 Forbidden: Access denied")
 
@@ -148,7 +148,7 @@ class TestKaggleFetcherDownload:
         fetcher._auth_valid = True
 
         with patch(
-            "fast_nfl_mcp.kaggle_fetcher.kagglehub.competition_download"
+            "fast_nfl_mcp.data.kaggle.kagglehub.competition_download"
         ) as mock_download:
             mock_download.side_effect = Exception("404 Not Found")
 
@@ -164,7 +164,7 @@ class TestKaggleFetcherDownload:
         fetcher._auth_valid = True
 
         with patch(
-            "fast_nfl_mcp.kaggle_fetcher.kagglehub.competition_download"
+            "fast_nfl_mcp.data.kaggle.kagglehub.competition_download"
         ) as mock_download:
             mock_download.side_effect = Exception("401 Unauthorized")
 
@@ -180,7 +180,7 @@ class TestKaggleFetcherDownload:
         fetcher._auth_valid = True
 
         with patch(
-            "fast_nfl_mcp.kaggle_fetcher.kagglehub.competition_download"
+            "fast_nfl_mcp.data.kaggle.kagglehub.competition_download"
         ) as mock_download:
             mock_download.return_value = str(tmp_path)
 
@@ -400,7 +400,7 @@ class TestGetFetcher:
     def test_get_fetcher_returns_singleton(self) -> None:
         """Test that get_fetcher returns the same instance."""
         # Reset the singleton
-        import fast_nfl_mcp.kaggle_fetcher as module
+        import fast_nfl_mcp.data.kaggle as module
 
         module._fetcher = None
 
@@ -447,7 +447,7 @@ class TestFetchBdbData:
     @pytest.fixture
     def mock_fetcher_data(self, tmp_path: Path) -> None:
         """Set up mocked KaggleFetcher with test data for BDB 2026 structure."""
-        import fast_nfl_mcp.kaggle_fetcher as module
+        import fast_nfl_mcp.data.kaggle as module
 
         fetcher = KaggleFetcher()
         fetcher._data_path = tmp_path
@@ -574,7 +574,7 @@ class TestFetchBdbData:
 
     def test_fetch_auth_error(self, tmp_path: Path) -> None:
         """Test that auth error is properly returned when no credentials exist."""
-        import fast_nfl_mcp.kaggle_fetcher as module
+        import fast_nfl_mcp.data.kaggle as module
 
         # Create fetcher with auth failure state
         fetcher = KaggleFetcher()

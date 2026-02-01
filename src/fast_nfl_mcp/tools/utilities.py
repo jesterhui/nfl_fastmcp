@@ -7,14 +7,14 @@ support the data query workflow.
 
 from typing import Any
 
-from fast_nfl_mcp.enums import DatasetStatus
-from fast_nfl_mcp.models import (
+from fast_nfl_mcp.core.models import (
     ErrorResponse,
     SuccessResponse,
     create_error_response,
     create_success_response,
 )
-from fast_nfl_mcp.schema_manager import DATASET_DEFINITIONS, SchemaManager
+from fast_nfl_mcp.data.schema import DATASET_DEFINITIONS, SchemaManager
+from fast_nfl_mcp.utils.enums import DatasetStatus
 
 
 def list_datasets_impl(schema_manager: SchemaManager) -> SuccessResponse:

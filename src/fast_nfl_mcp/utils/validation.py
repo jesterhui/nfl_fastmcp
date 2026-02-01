@@ -6,7 +6,7 @@ tool modules to reduce code duplication.
 
 from typing import Any
 
-from fast_nfl_mcp.constants import (
+from fast_nfl_mcp.utils.constants import (
     MAX_WEEK,
     MIN_SEASON,
     MIN_WEEK,

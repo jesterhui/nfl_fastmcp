@@ -9,16 +9,16 @@ from unittest.mock import patch
 import pandas as pd
 import pytest
 
-from fast_nfl_mcp.constants import (
+from fast_nfl_mcp.core.models import ErrorResponse, SuccessResponse
+from fast_nfl_mcp.tools.play_by_play import get_play_by_play_impl
+from fast_nfl_mcp.utils.constants import (
     DEFAULT_MAX_ROWS,
     MAX_SEASONS,
     MAX_WEEK,
     MIN_SEASON,
     MIN_WEEK,
 )
-from fast_nfl_mcp.models import ErrorResponse, SuccessResponse
-from fast_nfl_mcp.tools.play_by_play import get_play_by_play_impl
-from fast_nfl_mcp.tools.validation import (
+from fast_nfl_mcp.utils.validation import (
     normalize_filters,
     validate_seasons,
     validate_weeks,
@@ -215,7 +215,7 @@ class TestGetPlayByPlayImpl:
 
     def test_successful_fetch(self, sample_pbp_df: pd.DataFrame) -> None:
         """Test successful data fetch returns SuccessResponse."""
-        with patch("fast_nfl_mcp.schema_manager.nfl.import_pbp_data") as mock_import:
+        with patch("fast_nfl_mcp.data.schema.nfl.import_pbp_data") as mock_import:
             mock_import.return_value = sample_pbp_df
 
             result = get_play_by_play_impl([2024])
@@ -227,7 +227,7 @@ class TestGetPlayByPlayImpl:
 
     def test_week_filtering(self, sample_pbp_df: pd.DataFrame) -> None:
         """Test that week filtering works correctly."""
-        with patch("fast_nfl_mcp.schema_manager.nfl.import_pbp_data") as mock_import:
+        with patch("fast_nfl_mcp.data.schema.nfl.import_pbp_data") as mock_import:
             mock_import.return_value = sample_pbp_df
 
             result = get_play_by_play_impl([2024], [1])
@@ -241,7 +241,7 @@ class TestGetPlayByPlayImpl:
 
     def test_truncation_at_max_rows(self, large_pbp_df: pd.DataFrame) -> None:
         """Test that results are truncated at DEFAULT_MAX_ROWS."""
-        with patch("fast_nfl_mcp.schema_manager.nfl.import_pbp_data") as mock_import:
+        with patch("fast_nfl_mcp.data.schema.nfl.import_pbp_data") as mock_import:
             mock_import.return_value = large_pbp_df
 
             result = get_play_by_play_impl([2024])
@@ -264,7 +264,7 @@ class TestGetPlayByPlayImpl:
 
     def test_invalid_seasons_warning(self, sample_pbp_df: pd.DataFrame) -> None:
         """Test that invalid seasons produce warning."""
-        with patch("fast_nfl_mcp.schema_manager.nfl.import_pbp_data") as mock_import:
+        with patch("fast_nfl_mcp.data.schema.nfl.import_pbp_data") as mock_import:
             mock_import.return_value = sample_pbp_df
 
             result = get_play_by_play_impl([1990, 2024])
@@ -275,7 +275,7 @@ class TestGetPlayByPlayImpl:
 
     def test_too_many_seasons_warning(self, sample_pbp_df: pd.DataFrame) -> None:
         """Test that exceeding MAX_SEASONS produces warning."""
-        with patch("fast_nfl_mcp.schema_manager.nfl.import_pbp_data") as mock_import:
+        with patch("fast_nfl_mcp.data.schema.nfl.import_pbp_data") as mock_import:
             mock_import.return_value = sample_pbp_df
 
             result = get_play_by_play_impl([2020, 2021, 2022, 2023, 2024])
@@ -286,7 +286,7 @@ class TestGetPlayByPlayImpl:
 
     def test_invalid_weeks_warning(self, sample_pbp_df: pd.DataFrame) -> None:
         """Test that invalid weeks produce warning."""
-        with patch("fast_nfl_mcp.schema_manager.nfl.import_pbp_data") as mock_import:
+        with patch("fast_nfl_mcp.data.schema.nfl.import_pbp_data") as mock_import:
             mock_import.return_value = sample_pbp_df
 
             result = get_play_by_play_impl([2024], [0, 1, 20])
@@ -297,7 +297,7 @@ class TestGetPlayByPlayImpl:
 
     def test_network_error_handling(self) -> None:
         """Test that network errors return ErrorResponse."""
-        with patch("fast_nfl_mcp.schema_manager.nfl.import_pbp_data") as mock_import:
+        with patch("fast_nfl_mcp.data.schema.nfl.import_pbp_data") as mock_import:
             mock_import.side_effect = Exception("Network timeout")
 
             result = get_play_by_play_impl([2024])
@@ -308,7 +308,7 @@ class TestGetPlayByPlayImpl:
 
     def test_empty_dataframe_returns_success(self) -> None:
         """Test that empty DataFrame returns success with warning."""
-        with patch("fast_nfl_mcp.schema_manager.nfl.import_pbp_data") as mock_import:
+        with patch("fast_nfl_mcp.data.schema.nfl.import_pbp_data") as mock_import:
             mock_import.return_value = pd.DataFrame()
 
             result = get_play_by_play_impl([2024])
@@ -320,7 +320,7 @@ class TestGetPlayByPlayImpl:
 
     def test_columns_in_metadata(self, sample_pbp_df: pd.DataFrame) -> None:
         """Test that column names are included in metadata."""
-        with patch("fast_nfl_mcp.schema_manager.nfl.import_pbp_data") as mock_import:
+        with patch("fast_nfl_mcp.data.schema.nfl.import_pbp_data") as mock_import:
             mock_import.return_value = sample_pbp_df
 
             result = get_play_by_play_impl([2024])
@@ -332,7 +332,7 @@ class TestGetPlayByPlayImpl:
 
     def test_data_types_converted(self, sample_pbp_df: pd.DataFrame) -> None:
         """Test that numpy types are converted to Python native types."""
-        with patch("fast_nfl_mcp.schema_manager.nfl.import_pbp_data") as mock_import:
+        with patch("fast_nfl_mcp.data.schema.nfl.import_pbp_data") as mock_import:
             mock_import.return_value = sample_pbp_df
 
             result = get_play_by_play_impl([2024])
@@ -346,7 +346,7 @@ class TestGetPlayByPlayImpl:
 
     def test_combined_warnings(self, sample_pbp_df: pd.DataFrame) -> None:
         """Test that multiple warnings are combined."""
-        with patch("fast_nfl_mcp.schema_manager.nfl.import_pbp_data") as mock_import:
+        with patch("fast_nfl_mcp.data.schema.nfl.import_pbp_data") as mock_import:
             mock_import.return_value = sample_pbp_df
 
             # Both invalid season and invalid week
@@ -359,7 +359,7 @@ class TestGetPlayByPlayImpl:
 
     def test_filter_by_single_team(self, sample_pbp_df: pd.DataFrame) -> None:
         """Test filtering by a single team value."""
-        with patch("fast_nfl_mcp.schema_manager.nfl.import_pbp_data") as mock_import:
+        with patch("fast_nfl_mcp.data.schema.nfl.import_pbp_data") as mock_import:
             mock_import.return_value = sample_pbp_df
 
             result = get_play_by_play_impl([2024], filters={"posteam": "KC"})
@@ -373,7 +373,7 @@ class TestGetPlayByPlayImpl:
 
     def test_filter_by_team_list(self, sample_pbp_df: pd.DataFrame) -> None:
         """Test filtering by a list of teams."""
-        with patch("fast_nfl_mcp.schema_manager.nfl.import_pbp_data") as mock_import:
+        with patch("fast_nfl_mcp.data.schema.nfl.import_pbp_data") as mock_import:
             mock_import.return_value = sample_pbp_df
 
             result = get_play_by_play_impl([2024], filters={"posteam": ["KC", "SF"]})
@@ -386,7 +386,7 @@ class TestGetPlayByPlayImpl:
 
     def test_filter_by_play_type(self, sample_pbp_df: pd.DataFrame) -> None:
         """Test filtering by play type."""
-        with patch("fast_nfl_mcp.schema_manager.nfl.import_pbp_data") as mock_import:
+        with patch("fast_nfl_mcp.data.schema.nfl.import_pbp_data") as mock_import:
             mock_import.return_value = sample_pbp_df
 
             result = get_play_by_play_impl([2024], filters={"play_type": "pass"})
@@ -399,7 +399,7 @@ class TestGetPlayByPlayImpl:
 
     def test_combined_filters(self, sample_pbp_df: pd.DataFrame) -> None:
         """Test multiple filters applied together."""
-        with patch("fast_nfl_mcp.schema_manager.nfl.import_pbp_data") as mock_import:
+        with patch("fast_nfl_mcp.data.schema.nfl.import_pbp_data") as mock_import:
             mock_import.return_value = sample_pbp_df
 
             result = get_play_by_play_impl(
@@ -415,7 +415,7 @@ class TestGetPlayByPlayImpl:
 
     def test_filter_with_weeks(self, sample_pbp_df: pd.DataFrame) -> None:
         """Test filters combined with week filtering."""
-        with patch("fast_nfl_mcp.schema_manager.nfl.import_pbp_data") as mock_import:
+        with patch("fast_nfl_mcp.data.schema.nfl.import_pbp_data") as mock_import:
             mock_import.return_value = sample_pbp_df
 
             result = get_play_by_play_impl(
@@ -431,7 +431,7 @@ class TestGetPlayByPlayImpl:
 
     def test_filter_no_matches(self, sample_pbp_df: pd.DataFrame) -> None:
         """Test filters that match no rows."""
-        with patch("fast_nfl_mcp.schema_manager.nfl.import_pbp_data") as mock_import:
+        with patch("fast_nfl_mcp.data.schema.nfl.import_pbp_data") as mock_import:
             mock_import.return_value = sample_pbp_df
 
             result = get_play_by_play_impl([2024], filters={"posteam": "NYG"})
@@ -444,7 +444,7 @@ class TestGetPlayByPlayImpl:
 
     def test_filter_nonexistent_column(self, sample_pbp_df: pd.DataFrame) -> None:
         """Test filtering on a column that doesn't exist (ignored)."""
-        with patch("fast_nfl_mcp.schema_manager.nfl.import_pbp_data") as mock_import:
+        with patch("fast_nfl_mcp.data.schema.nfl.import_pbp_data") as mock_import:
             mock_import.return_value = sample_pbp_df
 
             # Nonexistent column should be ignored
@@ -459,7 +459,7 @@ class TestGetPlayByPlayImpl:
 
     def test_pagination_with_offset(self, large_pbp_df: pd.DataFrame) -> None:
         """Test that offset skips rows for pagination."""
-        with patch("fast_nfl_mcp.schema_manager.nfl.import_pbp_data") as mock_import:
+        with patch("fast_nfl_mcp.data.schema.nfl.import_pbp_data") as mock_import:
             mock_import.return_value = large_pbp_df
 
             result = get_play_by_play_impl([2024], offset=10)
@@ -472,7 +472,7 @@ class TestGetPlayByPlayImpl:
 
     def test_pagination_with_limit(self, large_pbp_df: pd.DataFrame) -> None:
         """Test that limit controls number of rows returned."""
-        with patch("fast_nfl_mcp.schema_manager.nfl.import_pbp_data") as mock_import:
+        with patch("fast_nfl_mcp.data.schema.nfl.import_pbp_data") as mock_import:
             mock_import.return_value = large_pbp_df
 
             result = get_play_by_play_impl([2024], limit=5)
@@ -484,7 +484,7 @@ class TestGetPlayByPlayImpl:
 
     def test_pagination_with_offset_and_limit(self, large_pbp_df: pd.DataFrame) -> None:
         """Test pagination with both offset and limit."""
-        with patch("fast_nfl_mcp.schema_manager.nfl.import_pbp_data") as mock_import:
+        with patch("fast_nfl_mcp.data.schema.nfl.import_pbp_data") as mock_import:
             mock_import.return_value = large_pbp_df
 
             result = get_play_by_play_impl([2024], offset=20, limit=15)
@@ -499,7 +499,7 @@ class TestGetPlayByPlayImpl:
         self, large_pbp_df: pd.DataFrame
     ) -> None:
         """Test that truncation warning includes next offset."""
-        with patch("fast_nfl_mcp.schema_manager.nfl.import_pbp_data") as mock_import:
+        with patch("fast_nfl_mcp.data.schema.nfl.import_pbp_data") as mock_import:
             mock_import.return_value = large_pbp_df
 
             result = get_play_by_play_impl([2024], offset=10, limit=10)

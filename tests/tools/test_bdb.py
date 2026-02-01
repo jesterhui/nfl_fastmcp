@@ -9,21 +9,21 @@ from pathlib import Path
 import pandas as pd
 import pytest
 
-from fast_nfl_mcp.constants import BDB_AVAILABLE_WEEKS
-from fast_nfl_mcp.kaggle_fetcher import KaggleFetcher
-from fast_nfl_mcp.models import ErrorResponse, SuccessResponse
+from fast_nfl_mcp.core.models import ErrorResponse, SuccessResponse
+from fast_nfl_mcp.data.kaggle import KaggleFetcher
 from fast_nfl_mcp.tools.bdb import (
     get_bdb_games_impl,
     get_bdb_players_impl,
     get_bdb_plays_impl,
     get_bdb_tracking_impl,
 )
+from fast_nfl_mcp.utils.constants import BDB_AVAILABLE_WEEKS
 
 
 @pytest.fixture
 def mock_bdb_data(tmp_path: Path) -> None:
     """Set up mocked KaggleFetcher with test data for BDB 2026 structure."""
-    import fast_nfl_mcp.kaggle_fetcher as module
+    import fast_nfl_mcp.data.kaggle as module
 
     fetcher = KaggleFetcher()
     # Create a subdirectory like the real competition data

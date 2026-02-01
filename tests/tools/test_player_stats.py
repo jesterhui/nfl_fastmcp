@@ -10,18 +10,18 @@ from unittest.mock import patch
 import pandas as pd
 import pytest
 
-from fast_nfl_mcp.constants import (
-    DEFAULT_MAX_ROWS,
-    MAX_SEASONS_SEASONAL,
-    MAX_SEASONS_WEEKLY,
-    MIN_SEASON,
-)
-from fast_nfl_mcp.models import ErrorResponse, SuccessResponse
+from fast_nfl_mcp.core.models import ErrorResponse, SuccessResponse
 from fast_nfl_mcp.tools.player_stats import (
     get_seasonal_stats_impl,
     get_weekly_stats_impl,
     normalize_filters,
     validate_seasons,
+)
+from fast_nfl_mcp.utils.constants import (
+    DEFAULT_MAX_ROWS,
+    MAX_SEASONS_SEASONAL,
+    MAX_SEASONS_WEEKLY,
+    MIN_SEASON,
 )
 
 
@@ -215,7 +215,7 @@ class TestGetWeeklyStatsImpl:
 
     def test_successful_fetch(self, sample_weekly_df: pd.DataFrame) -> None:
         """Test successful data fetch returns SuccessResponse."""
-        with patch("fast_nfl_mcp.schema_manager.nfl.import_weekly_data") as mock_import:
+        with patch("fast_nfl_mcp.data.schema.nfl.import_weekly_data") as mock_import:
             mock_import.return_value = sample_weekly_df
 
             result = get_weekly_stats_impl([2024])
@@ -227,7 +227,7 @@ class TestGetWeeklyStatsImpl:
 
     def test_week_filtering(self, sample_weekly_df: pd.DataFrame) -> None:
         """Test that week filtering works correctly."""
-        with patch("fast_nfl_mcp.schema_manager.nfl.import_weekly_data") as mock_import:
+        with patch("fast_nfl_mcp.data.schema.nfl.import_weekly_data") as mock_import:
             mock_import.return_value = sample_weekly_df
 
             result = get_weekly_stats_impl([2024], filters={"week": 1})
@@ -241,7 +241,7 @@ class TestGetWeeklyStatsImpl:
 
     def test_team_filtering(self, sample_weekly_df: pd.DataFrame) -> None:
         """Test that team filtering works correctly."""
-        with patch("fast_nfl_mcp.schema_manager.nfl.import_weekly_data") as mock_import:
+        with patch("fast_nfl_mcp.data.schema.nfl.import_weekly_data") as mock_import:
             mock_import.return_value = sample_weekly_df
 
             result = get_weekly_stats_impl([2024], filters={"team": "KC"})
@@ -254,7 +254,7 @@ class TestGetWeeklyStatsImpl:
 
     def test_truncation_at_max_rows(self, large_weekly_df: pd.DataFrame) -> None:
         """Test that results are truncated at DEFAULT_MAX_ROWS."""
-        with patch("fast_nfl_mcp.schema_manager.nfl.import_weekly_data") as mock_import:
+        with patch("fast_nfl_mcp.data.schema.nfl.import_weekly_data") as mock_import:
             mock_import.return_value = large_weekly_df
 
             result = get_weekly_stats_impl([2024])
@@ -277,7 +277,7 @@ class TestGetWeeklyStatsImpl:
 
     def test_too_many_seasons_warning(self, sample_weekly_df: pd.DataFrame) -> None:
         """Test that exceeding MAX_SEASONS_WEEKLY produces warning."""
-        with patch("fast_nfl_mcp.schema_manager.nfl.import_weekly_data") as mock_import:
+        with patch("fast_nfl_mcp.data.schema.nfl.import_weekly_data") as mock_import:
             mock_import.return_value = sample_weekly_df
 
             result = get_weekly_stats_impl([2018, 2019, 2020, 2021, 2022, 2023, 2024])
@@ -288,7 +288,7 @@ class TestGetWeeklyStatsImpl:
 
     def test_pagination_with_offset(self, large_weekly_df: pd.DataFrame) -> None:
         """Test that offset skips rows for pagination."""
-        with patch("fast_nfl_mcp.schema_manager.nfl.import_weekly_data") as mock_import:
+        with patch("fast_nfl_mcp.data.schema.nfl.import_weekly_data") as mock_import:
             mock_import.return_value = large_weekly_df
 
             result = get_weekly_stats_impl([2024], offset=10)
@@ -301,7 +301,7 @@ class TestGetWeeklyStatsImpl:
 
     def test_pagination_with_limit(self, large_weekly_df: pd.DataFrame) -> None:
         """Test that limit controls number of rows returned."""
-        with patch("fast_nfl_mcp.schema_manager.nfl.import_weekly_data") as mock_import:
+        with patch("fast_nfl_mcp.data.schema.nfl.import_weekly_data") as mock_import:
             mock_import.return_value = large_weekly_df
 
             result = get_weekly_stats_impl([2024], limit=5)
@@ -313,7 +313,7 @@ class TestGetWeeklyStatsImpl:
 
     def test_network_error_handling(self) -> None:
         """Test that network errors return ErrorResponse."""
-        with patch("fast_nfl_mcp.schema_manager.nfl.import_weekly_data") as mock_import:
+        with patch("fast_nfl_mcp.data.schema.nfl.import_weekly_data") as mock_import:
             mock_import.side_effect = Exception("Network timeout")
 
             result = get_weekly_stats_impl([2024])
@@ -324,7 +324,7 @@ class TestGetWeeklyStatsImpl:
 
     def test_columns_in_metadata(self, sample_weekly_df: pd.DataFrame) -> None:
         """Test that column names are included in metadata."""
-        with patch("fast_nfl_mcp.schema_manager.nfl.import_weekly_data") as mock_import:
+        with patch("fast_nfl_mcp.data.schema.nfl.import_weekly_data") as mock_import:
             mock_import.return_value = sample_weekly_df
 
             result = get_weekly_stats_impl([2024])
@@ -375,9 +375,7 @@ class TestGetSeasonalStatsImpl:
 
     def test_successful_fetch(self, sample_seasonal_df: pd.DataFrame) -> None:
         """Test successful data fetch returns SuccessResponse."""
-        with patch(
-            "fast_nfl_mcp.schema_manager.nfl.import_seasonal_data"
-        ) as mock_import:
+        with patch("fast_nfl_mcp.data.schema.nfl.import_seasonal_data") as mock_import:
             mock_import.return_value = sample_seasonal_df
 
             result = get_seasonal_stats_impl([2023, 2024])
@@ -389,9 +387,7 @@ class TestGetSeasonalStatsImpl:
 
     def test_season_filtering(self, sample_seasonal_df: pd.DataFrame) -> None:
         """Test that season filtering works correctly."""
-        with patch(
-            "fast_nfl_mcp.schema_manager.nfl.import_seasonal_data"
-        ) as mock_import:
+        with patch("fast_nfl_mcp.data.schema.nfl.import_seasonal_data") as mock_import:
             mock_import.return_value = sample_seasonal_df
 
             result = get_seasonal_stats_impl([2023, 2024], filters={"season": 2024})
@@ -405,9 +401,7 @@ class TestGetSeasonalStatsImpl:
 
     def test_team_filtering(self, sample_seasonal_df: pd.DataFrame) -> None:
         """Test that team filtering works correctly."""
-        with patch(
-            "fast_nfl_mcp.schema_manager.nfl.import_seasonal_data"
-        ) as mock_import:
+        with patch("fast_nfl_mcp.data.schema.nfl.import_seasonal_data") as mock_import:
             mock_import.return_value = sample_seasonal_df
 
             result = get_seasonal_stats_impl([2023, 2024], filters={"team": "KC"})
@@ -420,9 +414,7 @@ class TestGetSeasonalStatsImpl:
 
     def test_truncation_at_max_rows(self, large_seasonal_df: pd.DataFrame) -> None:
         """Test that results are truncated at DEFAULT_MAX_ROWS."""
-        with patch(
-            "fast_nfl_mcp.schema_manager.nfl.import_seasonal_data"
-        ) as mock_import:
+        with patch("fast_nfl_mcp.data.schema.nfl.import_seasonal_data") as mock_import:
             mock_import.return_value = large_seasonal_df
 
             result = get_seasonal_stats_impl([2024])
@@ -445,9 +437,7 @@ class TestGetSeasonalStatsImpl:
 
     def test_too_many_seasons_warning(self, sample_seasonal_df: pd.DataFrame) -> None:
         """Test that exceeding MAX_SEASONS_SEASONAL produces warning."""
-        with patch(
-            "fast_nfl_mcp.schema_manager.nfl.import_seasonal_data"
-        ) as mock_import:
+        with patch("fast_nfl_mcp.data.schema.nfl.import_seasonal_data") as mock_import:
             mock_import.return_value = sample_seasonal_df
 
             # More than 10 seasons
@@ -460,9 +450,7 @@ class TestGetSeasonalStatsImpl:
 
     def test_max_seasons_allowed(self, sample_seasonal_df: pd.DataFrame) -> None:
         """Test that MAX_SEASONS_SEASONAL (10) is allowed without warning."""
-        with patch(
-            "fast_nfl_mcp.schema_manager.nfl.import_seasonal_data"
-        ) as mock_import:
+        with patch("fast_nfl_mcp.data.schema.nfl.import_seasonal_data") as mock_import:
             mock_import.return_value = sample_seasonal_df
 
             # Exactly 10 seasons
@@ -476,9 +464,7 @@ class TestGetSeasonalStatsImpl:
 
     def test_pagination_with_offset(self, large_seasonal_df: pd.DataFrame) -> None:
         """Test that offset skips rows for pagination."""
-        with patch(
-            "fast_nfl_mcp.schema_manager.nfl.import_seasonal_data"
-        ) as mock_import:
+        with patch("fast_nfl_mcp.data.schema.nfl.import_seasonal_data") as mock_import:
             mock_import.return_value = large_seasonal_df
 
             result = get_seasonal_stats_impl([2024], offset=10)
@@ -491,9 +477,7 @@ class TestGetSeasonalStatsImpl:
 
     def test_pagination_with_limit(self, large_seasonal_df: pd.DataFrame) -> None:
         """Test that limit controls number of rows returned."""
-        with patch(
-            "fast_nfl_mcp.schema_manager.nfl.import_seasonal_data"
-        ) as mock_import:
+        with patch("fast_nfl_mcp.data.schema.nfl.import_seasonal_data") as mock_import:
             mock_import.return_value = large_seasonal_df
 
             result = get_seasonal_stats_impl([2024], limit=5)
@@ -505,9 +489,7 @@ class TestGetSeasonalStatsImpl:
 
     def test_network_error_handling(self) -> None:
         """Test that network errors return ErrorResponse."""
-        with patch(
-            "fast_nfl_mcp.schema_manager.nfl.import_seasonal_data"
-        ) as mock_import:
+        with patch("fast_nfl_mcp.data.schema.nfl.import_seasonal_data") as mock_import:
             mock_import.side_effect = Exception("Network timeout")
 
             result = get_seasonal_stats_impl([2024])
@@ -518,9 +500,7 @@ class TestGetSeasonalStatsImpl:
 
     def test_columns_in_metadata(self, sample_seasonal_df: pd.DataFrame) -> None:
         """Test that column names are included in metadata."""
-        with patch(
-            "fast_nfl_mcp.schema_manager.nfl.import_seasonal_data"
-        ) as mock_import:
+        with patch("fast_nfl_mcp.data.schema.nfl.import_seasonal_data") as mock_import:
             mock_import.return_value = sample_seasonal_df
 
             result = get_seasonal_stats_impl([2024])

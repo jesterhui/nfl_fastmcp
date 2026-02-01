@@ -12,11 +12,11 @@ from typing import Any
 import nfl_data_py as nfl
 import pandas as pd
 
-from fast_nfl_mcp.constants import MIN_SEASON, get_current_season_year
-from fast_nfl_mcp.enums import DatasetName, DatasetStatus
-from fast_nfl_mcp.models import ColumnSchema, DatasetSchema
-from fast_nfl_mcp.serialization import extract_sample_values
-from fast_nfl_mcp.types import DatasetDefinition
+from fast_nfl_mcp.core.models import ColumnSchema, DatasetSchema
+from fast_nfl_mcp.utils.constants import MIN_SEASON, get_current_season_year
+from fast_nfl_mcp.utils.enums import DatasetName, DatasetStatus
+from fast_nfl_mcp.utils.serialization import extract_sample_values
+from fast_nfl_mcp.utils.types import DatasetDefinition
 
 logger = logging.getLogger(__name__)
 

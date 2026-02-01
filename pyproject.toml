@@ -41,7 +41,7 @@ dev = [
 ]
 
 [project.scripts]
-fast-nfl-mcp = "fast_nfl_mcp.server:main"
+fast-nfl-mcp = "fast_nfl_mcp.core.server:main"
 
 [build-system]
 requires = ["hatchling"]

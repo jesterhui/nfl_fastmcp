@@ -13,10 +13,14 @@ rules before using these tools.
 
 from typing import Any
 
-from fast_nfl_mcp.constants import BDB_AVAILABLE_WEEKS
-from fast_nfl_mcp.kaggle_fetcher import fetch_bdb_data
-from fast_nfl_mcp.models import ErrorResponse, SuccessResponse, create_error_response
-from fast_nfl_mcp.tools.validation import normalize_filters
+from fast_nfl_mcp.core.models import (
+    ErrorResponse,
+    SuccessResponse,
+    create_error_response,
+)
+from fast_nfl_mcp.data.kaggle import fetch_bdb_data
+from fast_nfl_mcp.utils.constants import BDB_AVAILABLE_WEEKS
+from fast_nfl_mcp.utils.validation import normalize_filters
 
 
 def get_bdb_games_impl(

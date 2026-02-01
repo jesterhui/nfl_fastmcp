@@ -9,8 +9,7 @@ from unittest.mock import patch
 import pandas as pd
 import pytest
 
-from fast_nfl_mcp.constants import DEFAULT_MAX_ROWS
-from fast_nfl_mcp.models import ErrorResponse, SuccessResponse
+from fast_nfl_mcp.core.models import ErrorResponse, SuccessResponse
 from fast_nfl_mcp.tools.reference import (
     LOOKUP_PLAYER_COLUMNS,
     LOOKUP_PLAYER_DEFAULT_LIMIT,
@@ -21,6 +20,7 @@ from fast_nfl_mcp.tools.reference import (
     get_team_descriptions_impl,
     lookup_player_impl,
 )
+from fast_nfl_mcp.utils.constants import DEFAULT_MAX_ROWS
 
 
 class TestGetPlayerIds:
@@ -52,7 +52,7 @@ class TestGetPlayerIds:
 
     def test_successful_fetch(self, sample_player_ids_df: pd.DataFrame) -> None:
         """Test successful data fetch returns SuccessResponse."""
-        with patch("fast_nfl_mcp.schema_manager.nfl.import_ids") as mock_import:
+        with patch("fast_nfl_mcp.data.schema.nfl.import_ids") as mock_import:
             mock_import.return_value = sample_player_ids_df
 
             result = get_player_ids_impl()
@@ -64,7 +64,7 @@ class TestGetPlayerIds:
 
     def test_truncation_at_max_rows(self, large_player_ids_df: pd.DataFrame) -> None:
         """Test that results are truncated at DEFAULT_MAX_ROWS."""
-        with patch("fast_nfl_mcp.schema_manager.nfl.import_ids") as mock_import:
+        with patch("fast_nfl_mcp.data.schema.nfl.import_ids") as mock_import:
             mock_import.return_value = large_player_ids_df
 
             result = get_player_ids_impl()
@@ -77,7 +77,7 @@ class TestGetPlayerIds:
 
     def test_pagination_with_offset(self, large_player_ids_df: pd.DataFrame) -> None:
         """Test that offset skips rows for pagination."""
-        with patch("fast_nfl_mcp.schema_manager.nfl.import_ids") as mock_import:
+        with patch("fast_nfl_mcp.data.schema.nfl.import_ids") as mock_import:
             mock_import.return_value = large_player_ids_df
 
             result = get_player_ids_impl(offset=10)
@@ -89,7 +89,7 @@ class TestGetPlayerIds:
 
     def test_pagination_with_limit(self, large_player_ids_df: pd.DataFrame) -> None:
         """Test that limit controls number of rows returned."""
-        with patch("fast_nfl_mcp.schema_manager.nfl.import_ids") as mock_import:
+        with patch("fast_nfl_mcp.data.schema.nfl.import_ids") as mock_import:
             mock_import.return_value = large_player_ids_df
 
             result = get_player_ids_impl(limit=5)
@@ -103,7 +103,7 @@ class TestGetPlayerIds:
         self, large_player_ids_df: pd.DataFrame
     ) -> None:
         """Test pagination with both offset and limit."""
-        with patch("fast_nfl_mcp.schema_manager.nfl.import_ids") as mock_import:
+        with patch("fast_nfl_mcp.data.schema.nfl.import_ids") as mock_import:
             mock_import.return_value = large_player_ids_df
 
             result = get_player_ids_impl(offset=20, limit=15)
@@ -115,7 +115,7 @@ class TestGetPlayerIds:
 
     def test_empty_dataframe_returns_success(self) -> None:
         """Test that empty DataFrame returns success with warning."""
-        with patch("fast_nfl_mcp.schema_manager.nfl.import_ids") as mock_import:
+        with patch("fast_nfl_mcp.data.schema.nfl.import_ids") as mock_import:
             mock_import.return_value = pd.DataFrame()
 
             result = get_player_ids_impl()
@@ -127,7 +127,7 @@ class TestGetPlayerIds:
 
     def test_network_error_handling(self) -> None:
         """Test that network errors return ErrorResponse."""
-        with patch("fast_nfl_mcp.schema_manager.nfl.import_ids") as mock_import:
+        with patch("fast_nfl_mcp.data.schema.nfl.import_ids") as mock_import:
             mock_import.side_effect = Exception("Network timeout")
 
             result = get_player_ids_impl()
@@ -138,7 +138,7 @@ class TestGetPlayerIds:
 
     def test_columns_in_metadata(self, sample_player_ids_df: pd.DataFrame) -> None:
         """Test that column names are included in metadata."""
-        with patch("fast_nfl_mcp.schema_manager.nfl.import_ids") as mock_import:
+        with patch("fast_nfl_mcp.data.schema.nfl.import_ids") as mock_import:
             mock_import.return_value = sample_player_ids_df
 
             result = get_player_ids_impl()
@@ -171,7 +171,7 @@ class TestGetTeamDescriptions:
 
     def test_successful_fetch(self, sample_team_desc_df: pd.DataFrame) -> None:
         """Test successful data fetch returns SuccessResponse."""
-        with patch("fast_nfl_mcp.schema_manager.nfl.import_team_desc") as mock_import:
+        with patch("fast_nfl_mcp.data.schema.nfl.import_team_desc") as mock_import:
             mock_import.return_value = sample_team_desc_df
 
             result = get_team_descriptions_impl()
@@ -183,7 +183,7 @@ class TestGetTeamDescriptions:
 
     def test_pagination_with_offset(self, sample_team_desc_df: pd.DataFrame) -> None:
         """Test that offset skips rows for pagination."""
-        with patch("fast_nfl_mcp.schema_manager.nfl.import_team_desc") as mock_import:
+        with patch("fast_nfl_mcp.data.schema.nfl.import_team_desc") as mock_import:
             mock_import.return_value = sample_team_desc_df
 
             result = get_team_descriptions_impl(offset=1)
@@ -195,7 +195,7 @@ class TestGetTeamDescriptions:
 
     def test_pagination_with_limit(self, sample_team_desc_df: pd.DataFrame) -> None:
         """Test that limit controls number of rows returned."""
-        with patch("fast_nfl_mcp.schema_manager.nfl.import_team_desc") as mock_import:
+        with patch("fast_nfl_mcp.data.schema.nfl.import_team_desc") as mock_import:
             mock_import.return_value = sample_team_desc_df
 
             result = get_team_descriptions_impl(limit=2)
@@ -206,7 +206,7 @@ class TestGetTeamDescriptions:
 
     def test_empty_dataframe_returns_success(self) -> None:
         """Test that empty DataFrame returns success with warning."""
-        with patch("fast_nfl_mcp.schema_manager.nfl.import_team_desc") as mock_import:
+        with patch("fast_nfl_mcp.data.schema.nfl.import_team_desc") as mock_import:
             mock_import.return_value = pd.DataFrame()
 
             result = get_team_descriptions_impl()
@@ -218,7 +218,7 @@ class TestGetTeamDescriptions:
 
     def test_network_error_handling(self) -> None:
         """Test that network errors return ErrorResponse."""
-        with patch("fast_nfl_mcp.schema_manager.nfl.import_team_desc") as mock_import:
+        with patch("fast_nfl_mcp.data.schema.nfl.import_team_desc") as mock_import:
             mock_import.side_effect = Exception("Network error")
 
             result = get_team_descriptions_impl()
@@ -229,7 +229,7 @@ class TestGetTeamDescriptions:
 
     def test_columns_in_metadata(self, sample_team_desc_df: pd.DataFrame) -> None:
         """Test that column names are included in metadata."""
-        with patch("fast_nfl_mcp.schema_manager.nfl.import_team_desc") as mock_import:
+        with patch("fast_nfl_mcp.data.schema.nfl.import_team_desc") as mock_import:
             mock_import.return_value = sample_team_desc_df
 
             result = get_team_descriptions_impl()
@@ -267,7 +267,7 @@ class TestGetOfficials:
 
     def test_successful_fetch(self, sample_officials_df: pd.DataFrame) -> None:
         """Test successful data fetch returns SuccessResponse."""
-        with patch("fast_nfl_mcp.schema_manager.nfl.import_officials") as mock_import:
+        with patch("fast_nfl_mcp.data.schema.nfl.import_officials") as mock_import:
             mock_import.return_value = sample_officials_df
 
             result = get_officials_impl()
@@ -279,7 +279,7 @@ class TestGetOfficials:
 
     def test_truncation_at_max_rows(self, large_officials_df: pd.DataFrame) -> None:
         """Test that results are truncated at DEFAULT_MAX_ROWS."""
-        with patch("fast_nfl_mcp.schema_manager.nfl.import_officials") as mock_import:
+        with patch("fast_nfl_mcp.data.schema.nfl.import_officials") as mock_import:
             mock_import.return_value = large_officials_df
 
             result = get_officials_impl()
@@ -292,7 +292,7 @@ class TestGetOfficials:
 
     def test_pagination_with_offset(self, large_officials_df: pd.DataFrame) -> None:
         """Test that offset skips rows for pagination."""
-        with patch("fast_nfl_mcp.schema_manager.nfl.import_officials") as mock_import:
+        with patch("fast_nfl_mcp.data.schema.nfl.import_officials") as mock_import:
             mock_import.return_value = large_officials_df
 
             result = get_officials_impl(offset=10)
@@ -303,7 +303,7 @@ class TestGetOfficials:
 
     def test_pagination_with_limit(self, large_officials_df: pd.DataFrame) -> None:
         """Test that limit controls number of rows returned."""
-        with patch("fast_nfl_mcp.schema_manager.nfl.import_officials") as mock_import:
+        with patch("fast_nfl_mcp.data.schema.nfl.import_officials") as mock_import:
             mock_import.return_value = large_officials_df
 
             result = get_officials_impl(limit=5)
@@ -314,7 +314,7 @@ class TestGetOfficials:
 
     def test_empty_dataframe_returns_success(self) -> None:
         """Test that empty DataFrame returns success with warning."""
-        with patch("fast_nfl_mcp.schema_manager.nfl.import_officials") as mock_import:
+        with patch("fast_nfl_mcp.data.schema.nfl.import_officials") as mock_import:
             mock_import.return_value = pd.DataFrame()
 
             result = get_officials_impl()
@@ -326,7 +326,7 @@ class TestGetOfficials:
 
     def test_network_error_handling(self) -> None:
         """Test that network errors return ErrorResponse."""
-        with patch("fast_nfl_mcp.schema_manager.nfl.import_officials") as mock_import:
+        with patch("fast_nfl_mcp.data.schema.nfl.import_officials") as mock_import:
             mock_import.side_effect = Exception("Connection refused")
 
             result = get_officials_impl()
@@ -337,7 +337,7 @@ class TestGetOfficials:
 
     def test_columns_in_metadata(self, sample_officials_df: pd.DataFrame) -> None:
         """Test that column names are included in metadata."""
-        with patch("fast_nfl_mcp.schema_manager.nfl.import_officials") as mock_import:
+        with patch("fast_nfl_mcp.data.schema.nfl.import_officials") as mock_import:
             mock_import.return_value = sample_officials_df
 
             result = get_officials_impl()
@@ -379,7 +379,7 @@ class TestGetContracts:
 
     def test_successful_fetch(self, sample_contracts_df: pd.DataFrame) -> None:
         """Test successful data fetch returns SuccessResponse."""
-        with patch("fast_nfl_mcp.schema_manager.nfl.import_contracts") as mock_import:
+        with patch("fast_nfl_mcp.data.schema.nfl.import_contracts") as mock_import:
             mock_import.return_value = sample_contracts_df
 
             result = get_contracts_impl()
@@ -391,7 +391,7 @@ class TestGetContracts:
 
     def test_truncation_at_max_rows(self, large_contracts_df: pd.DataFrame) -> None:
         """Test that results are truncated at DEFAULT_MAX_ROWS."""
-        with patch("fast_nfl_mcp.schema_manager.nfl.import_contracts") as mock_import:
+        with patch("fast_nfl_mcp.data.schema.nfl.import_contracts") as mock_import:
             mock_import.return_value = large_contracts_df
 
             result = get_contracts_impl()
@@ -404,7 +404,7 @@ class TestGetContracts:
 
     def test_pagination_with_offset(self, large_contracts_df: pd.DataFrame) -> None:
         """Test that offset skips rows for pagination."""
-        with patch("fast_nfl_mcp.schema_manager.nfl.import_contracts") as mock_import:
+        with patch("fast_nfl_mcp.data.schema.nfl.import_contracts") as mock_import:
             mock_import.return_value = large_contracts_df
 
             result = get_contracts_impl(offset=10)
@@ -415,7 +415,7 @@ class TestGetContracts:
 
     def test_pagination_with_limit(self, large_contracts_df: pd.DataFrame) -> None:
         """Test that limit controls number of rows returned."""
-        with patch("fast_nfl_mcp.schema_manager.nfl.import_contracts") as mock_import:
+        with patch("fast_nfl_mcp.data.schema.nfl.import_contracts") as mock_import:
             mock_import.return_value = large_contracts_df
 
             result = get_contracts_impl(limit=5)
@@ -428,7 +428,7 @@ class TestGetContracts:
         self, large_contracts_df: pd.DataFrame
     ) -> None:
         """Test pagination with both offset and limit."""
-        with patch("fast_nfl_mcp.schema_manager.nfl.import_contracts") as mock_import:
+        with patch("fast_nfl_mcp.data.schema.nfl.import_contracts") as mock_import:
             mock_import.return_value = large_contracts_df
 
             result = get_contracts_impl(offset=20, limit=15)
@@ -440,7 +440,7 @@ class TestGetContracts:
 
     def test_empty_dataframe_returns_success(self) -> None:
         """Test that empty DataFrame returns success with warning."""
-        with patch("fast_nfl_mcp.schema_manager.nfl.import_contracts") as mock_import:
+        with patch("fast_nfl_mcp.data.schema.nfl.import_contracts") as mock_import:
             mock_import.return_value = pd.DataFrame()
 
             result = get_contracts_impl()
@@ -452,7 +452,7 @@ class TestGetContracts:
 
     def test_network_error_handling(self) -> None:
         """Test that network errors return ErrorResponse."""
-        with patch("fast_nfl_mcp.schema_manager.nfl.import_contracts") as mock_import:
+        with patch("fast_nfl_mcp.data.schema.nfl.import_contracts") as mock_import:
             mock_import.side_effect = Exception("Timeout error")
 
             result = get_contracts_impl()
@@ -463,7 +463,7 @@ class TestGetContracts:
 
     def test_columns_in_metadata(self, sample_contracts_df: pd.DataFrame) -> None:
         """Test that column names are included in metadata."""
-        with patch("fast_nfl_mcp.schema_manager.nfl.import_contracts") as mock_import:
+        with patch("fast_nfl_mcp.data.schema.nfl.import_contracts") as mock_import:
             mock_import.return_value = sample_contracts_df
 
             result = get_contracts_impl()
@@ -518,7 +518,7 @@ class TestLookupPlayer:
         self, sample_player_ids_df: pd.DataFrame
     ) -> None:
         """Test successful lookup with exact name match."""
-        with patch("fast_nfl_mcp.schema_manager.nfl.import_ids") as mock_import:
+        with patch("fast_nfl_mcp.data.schema.nfl.import_ids") as mock_import:
             mock_import.return_value = sample_player_ids_df
 
             result = lookup_player_impl("Patrick Mahomes")
@@ -533,7 +533,7 @@ class TestLookupPlayer:
 
     def test_partial_name_match(self, sample_player_ids_df: pd.DataFrame) -> None:
         """Test partial name matching works correctly."""
-        with patch("fast_nfl_mcp.schema_manager.nfl.import_ids") as mock_import:
+        with patch("fast_nfl_mcp.data.schema.nfl.import_ids") as mock_import:
             mock_import.return_value = sample_player_ids_df
 
             result = lookup_player_impl("Mahomes")
@@ -547,7 +547,7 @@ class TestLookupPlayer:
         self, sample_player_ids_df: pd.DataFrame
     ) -> None:
         """Test case-insensitive matching works correctly."""
-        with patch("fast_nfl_mcp.schema_manager.nfl.import_ids") as mock_import:
+        with patch("fast_nfl_mcp.data.schema.nfl.import_ids") as mock_import:
             mock_import.return_value = sample_player_ids_df
 
             # Test uppercase
@@ -579,7 +579,7 @@ class TestLookupPlayer:
                 "merge_name": ["john smith", "johnny smith", "john smithson"],
             }
         )
-        with patch("fast_nfl_mcp.schema_manager.nfl.import_ids") as mock_import:
+        with patch("fast_nfl_mcp.data.schema.nfl.import_ids") as mock_import:
             mock_import.return_value = df
 
             result = lookup_player_impl("Smith")
@@ -591,7 +591,7 @@ class TestLookupPlayer:
 
     def test_default_limit(self, large_player_ids_df: pd.DataFrame) -> None:
         """Test that default limit of 10 is applied."""
-        with patch("fast_nfl_mcp.schema_manager.nfl.import_ids") as mock_import:
+        with patch("fast_nfl_mcp.data.schema.nfl.import_ids") as mock_import:
             mock_import.return_value = large_player_ids_df
 
             result = lookup_player_impl("Smith")
@@ -604,7 +604,7 @@ class TestLookupPlayer:
 
     def test_custom_limit(self, large_player_ids_df: pd.DataFrame) -> None:
         """Test that custom limit is respected."""
-        with patch("fast_nfl_mcp.schema_manager.nfl.import_ids") as mock_import:
+        with patch("fast_nfl_mcp.data.schema.nfl.import_ids") as mock_import:
             mock_import.return_value = large_player_ids_df
 
             result = lookup_player_impl("Smith", limit=5)
@@ -616,7 +616,7 @@ class TestLookupPlayer:
 
     def test_max_limit_enforced(self, large_player_ids_df: pd.DataFrame) -> None:
         """Test that limit is capped at LOOKUP_PLAYER_MAX_LIMIT."""
-        with patch("fast_nfl_mcp.schema_manager.nfl.import_ids") as mock_import:
+        with patch("fast_nfl_mcp.data.schema.nfl.import_ids") as mock_import:
             mock_import.return_value = large_player_ids_df
 
             result = lookup_player_impl("Smith", limit=200)
@@ -629,7 +629,7 @@ class TestLookupPlayer:
         self, sample_player_ids_df: pd.DataFrame
     ) -> None:
         """Test that no matches returns success with warning."""
-        with patch("fast_nfl_mcp.schema_manager.nfl.import_ids") as mock_import:
+        with patch("fast_nfl_mcp.data.schema.nfl.import_ids") as mock_import:
             mock_import.return_value = sample_player_ids_df
 
             result = lookup_player_impl("NonexistentPlayer")
@@ -662,7 +662,7 @@ class TestLookupPlayer:
 
     def test_correct_columns_returned(self, sample_player_ids_df: pd.DataFrame) -> None:
         """Test that only the specified columns are returned."""
-        with patch("fast_nfl_mcp.schema_manager.nfl.import_ids") as mock_import:
+        with patch("fast_nfl_mcp.data.schema.nfl.import_ids") as mock_import:
             mock_import.return_value = sample_player_ids_df
 
             result = lookup_player_impl("Mahomes")
@@ -679,7 +679,7 @@ class TestLookupPlayer:
 
     def test_columns_in_metadata(self, sample_player_ids_df: pd.DataFrame) -> None:
         """Test that column names are included in metadata."""
-        with patch("fast_nfl_mcp.schema_manager.nfl.import_ids") as mock_import:
+        with patch("fast_nfl_mcp.data.schema.nfl.import_ids") as mock_import:
             mock_import.return_value = sample_player_ids_df
 
             result = lookup_player_impl("Mahomes")
@@ -691,7 +691,7 @@ class TestLookupPlayer:
 
     def test_connection_error_handling(self) -> None:
         """Test that ConnectionError returns ErrorResponse with network error message."""
-        with patch("fast_nfl_mcp.schema_manager.nfl.import_ids") as mock_import:
+        with patch("fast_nfl_mcp.data.schema.nfl.import_ids") as mock_import:
             mock_import.side_effect = ConnectionError("Unable to connect")
 
             result = lookup_player_impl("Mahomes")
@@ -702,7 +702,7 @@ class TestLookupPlayer:
 
     def test_os_error_handling(self) -> None:
         """Test that OSError returns ErrorResponse with network error message."""
-        with patch("fast_nfl_mcp.schema_manager.nfl.import_ids") as mock_import:
+        with patch("fast_nfl_mcp.data.schema.nfl.import_ids") as mock_import:
             mock_import.side_effect = OSError("I/O error")
 
             result = lookup_player_impl("Mahomes")
@@ -713,7 +713,7 @@ class TestLookupPlayer:
 
     def test_runtime_error_handling(self) -> None:
         """Test that RuntimeError returns ErrorResponse."""
-        with patch("fast_nfl_mcp.schema_manager.nfl.import_ids") as mock_import:
+        with patch("fast_nfl_mcp.data.schema.nfl.import_ids") as mock_import:
             mock_import.side_effect = RuntimeError("Something went wrong")
 
             result = lookup_player_impl("Mahomes")
@@ -724,7 +724,7 @@ class TestLookupPlayer:
 
     def test_keyboard_interrupt_propagates(self) -> None:
         """Test that KeyboardInterrupt is not caught and propagates correctly."""
-        with patch("fast_nfl_mcp.schema_manager.nfl.import_ids") as mock_import:
+        with patch("fast_nfl_mcp.data.schema.nfl.import_ids") as mock_import:
             mock_import.side_effect = KeyboardInterrupt()
 
             with pytest.raises(KeyboardInterrupt):
@@ -732,7 +732,7 @@ class TestLookupPlayer:
 
     def test_attribute_error_returns_error_response(self) -> None:
         """Test that AttributeError returns ErrorResponse (not crash)."""
-        with patch("fast_nfl_mcp.schema_manager.nfl.import_ids") as mock_import:
+        with patch("fast_nfl_mcp.data.schema.nfl.import_ids") as mock_import:
             mock_import.side_effect = AttributeError("object has no attribute")
 
             result = lookup_player_impl("Mahomes")
@@ -743,7 +743,7 @@ class TestLookupPlayer:
 
     def test_empty_dataframe_returns_warning(self) -> None:
         """Test that empty DataFrame returns success with warning."""
-        with patch("fast_nfl_mcp.schema_manager.nfl.import_ids") as mock_import:
+        with patch("fast_nfl_mcp.data.schema.nfl.import_ids") as mock_import:
             mock_import.return_value = pd.DataFrame()
 
             result = lookup_player_impl("Mahomes")
@@ -764,7 +764,7 @@ class TestLookupPlayer:
                 "position": ["QB"],
             }
         )
-        with patch("fast_nfl_mcp.schema_manager.nfl.import_ids") as mock_import:
+        with patch("fast_nfl_mcp.data.schema.nfl.import_ids") as mock_import:
             mock_import.return_value = df
 
             result = lookup_player_impl("mahomes")
@@ -778,7 +778,7 @@ class TestLookupPlayer:
         self, large_player_ids_df: pd.DataFrame
     ) -> None:
         """Test that truncation warning message is informative."""
-        with patch("fast_nfl_mcp.schema_manager.nfl.import_ids") as mock_import:
+        with patch("fast_nfl_mcp.data.schema.nfl.import_ids") as mock_import:
             mock_import.return_value = large_player_ids_df
 
             result = lookup_player_impl("Smith")
@@ -805,7 +805,7 @@ class TestLookupPlayer:
                 "merge_name": ["tj hockenson", "odell beckham"],
             }
         )
-        with patch("fast_nfl_mcp.schema_manager.nfl.import_ids") as mock_import:
+        with patch("fast_nfl_mcp.data.schema.nfl.import_ids") as mock_import:
             mock_import.return_value = df
 
             # Search with "T.J." - should match via name column
@@ -844,10 +844,10 @@ class TestReferenceToolsIntegration:
         mock_contracts = pd.DataFrame({"player": ["Test"], "value": [1000000]})
 
         with (
-            patch("fast_nfl_mcp.schema_manager.nfl.import_ids") as mock_ids,
-            patch("fast_nfl_mcp.schema_manager.nfl.import_team_desc") as mock_desc,
-            patch("fast_nfl_mcp.schema_manager.nfl.import_officials") as mock_off,
-            patch("fast_nfl_mcp.schema_manager.nfl.import_contracts") as mock_con,
+            patch("fast_nfl_mcp.data.schema.nfl.import_ids") as mock_ids,
+            patch("fast_nfl_mcp.data.schema.nfl.import_team_desc") as mock_desc,
+            patch("fast_nfl_mcp.data.schema.nfl.import_officials") as mock_off,
+            patch("fast_nfl_mcp.data.schema.nfl.import_contracts") as mock_con,
         ):
             mock_ids.return_value = mock_player_ids
             mock_desc.return_value = mock_team_desc
@@ -873,10 +873,10 @@ class TestReferenceToolsIntegration:
         mock_df = pd.DataFrame({"col": [1, 2, 3]})
 
         with (
-            patch("fast_nfl_mcp.schema_manager.nfl.import_ids") as mock_ids,
-            patch("fast_nfl_mcp.schema_manager.nfl.import_team_desc") as mock_desc,
-            patch("fast_nfl_mcp.schema_manager.nfl.import_officials") as mock_off,
-            patch("fast_nfl_mcp.schema_manager.nfl.import_contracts") as mock_con,
+            patch("fast_nfl_mcp.data.schema.nfl.import_ids") as mock_ids,
+            patch("fast_nfl_mcp.data.schema.nfl.import_team_desc") as mock_desc,
+            patch("fast_nfl_mcp.data.schema.nfl.import_officials") as mock_off,
+            patch("fast_nfl_mcp.data.schema.nfl.import_contracts") as mock_con,
         ):
             mock_ids.return_value = mock_df
             mock_desc.return_value = mock_df
@@ -909,7 +909,7 @@ class TestLookupPlayerCaching:
     @pytest.fixture(autouse=True)
     def reset_redis_state(self) -> None:
         """Reset Redis connection state before each test."""
-        from fast_nfl_mcp.redis_cache import reset_redis_connection
+        from fast_nfl_mcp.utils.cache import reset_redis_connection
 
         reset_redis_connection()
         yield
@@ -920,7 +920,7 @@ class TestLookupPlayerCaching:
     ) -> None:
         """Test that cache miss loads data from source and caches it."""
         with (
-            patch("fast_nfl_mcp.schema_manager.nfl.import_ids") as mock_import,
+            patch("fast_nfl_mcp.data.schema.nfl.import_ids") as mock_import,
             patch(
                 "fast_nfl_mcp.tools.reference.get_cached_dataframe"
             ) as mock_get_cache,
@@ -947,7 +947,7 @@ class TestLookupPlayerCaching:
     ) -> None:
         """Test that cache hit skips loading from source."""
         with (
-            patch("fast_nfl_mcp.schema_manager.nfl.import_ids") as mock_import,
+            patch("fast_nfl_mcp.data.schema.nfl.import_ids") as mock_import,
             patch(
                 "fast_nfl_mcp.tools.reference.get_cached_dataframe"
             ) as mock_get_cache,
@@ -969,10 +969,10 @@ class TestLookupPlayerCaching:
 
     def test_cache_uses_correct_key(self, sample_player_ids_df: pd.DataFrame) -> None:
         """Test that caching uses the correct cache key."""
-        from fast_nfl_mcp.redis_cache import PLAYER_IDS_CACHE_KEY
+        from fast_nfl_mcp.utils.cache import PLAYER_IDS_CACHE_KEY
 
         with (
-            patch("fast_nfl_mcp.schema_manager.nfl.import_ids") as mock_import,
+            patch("fast_nfl_mcp.data.schema.nfl.import_ids") as mock_import,
             patch(
                 "fast_nfl_mcp.tools.reference.get_cached_dataframe"
             ) as mock_get_cache,
@@ -993,10 +993,10 @@ class TestLookupPlayerCaching:
 
     def test_cache_uses_default_ttl(self, sample_player_ids_df: pd.DataFrame) -> None:
         """Test that cache uses the default TTL constant."""
-        from fast_nfl_mcp.constants import DEFAULT_PLAYER_IDS_CACHE_TTL_SECONDS
+        from fast_nfl_mcp.utils.constants import DEFAULT_PLAYER_IDS_CACHE_TTL_SECONDS
 
         with (
-            patch("fast_nfl_mcp.schema_manager.nfl.import_ids") as mock_import,
+            patch("fast_nfl_mcp.data.schema.nfl.import_ids") as mock_import,
             patch(
                 "fast_nfl_mcp.tools.reference.get_cached_dataframe"
             ) as mock_get_cache,
@@ -1019,7 +1019,7 @@ class TestLookupPlayerCaching:
     ) -> None:
         """Test that lookup works when Redis is unavailable."""
         with (
-            patch("fast_nfl_mcp.schema_manager.nfl.import_ids") as mock_import,
+            patch("fast_nfl_mcp.data.schema.nfl.import_ids") as mock_import,
             patch(
                 "fast_nfl_mcp.tools.reference.get_cached_dataframe"
             ) as mock_get_cache,
@@ -1051,7 +1051,7 @@ class TestLookupPlayerCaching:
             return sample_player_ids_df  # Subsequent calls: cache hit
 
         with (
-            patch("fast_nfl_mcp.schema_manager.nfl.import_ids") as mock_import,
+            patch("fast_nfl_mcp.data.schema.nfl.import_ids") as mock_import,
             patch(
                 "fast_nfl_mcp.tools.reference.get_cached_dataframe",
                 side_effect=mock_get_cache,
@@ -1078,7 +1078,7 @@ class TestLookupPlayerCaching:
     def test_empty_dataframe_not_cached(self) -> None:
         """Test that empty DataFrame is not cached."""
         with (
-            patch("fast_nfl_mcp.schema_manager.nfl.import_ids") as mock_import,
+            patch("fast_nfl_mcp.data.schema.nfl.import_ids") as mock_import,
             patch(
                 "fast_nfl_mcp.tools.reference.get_cached_dataframe"
             ) as mock_get_cache,

@@ -9,16 +9,16 @@ from unittest.mock import patch
 import pandas as pd
 import pytest
 
-from fast_nfl_mcp.constants import (
-    DEFAULT_MAX_ROWS,
-    MAX_SEASONS_SCHEDULES,
-    MIN_SEASON,
-)
-from fast_nfl_mcp.models import ErrorResponse, SuccessResponse
+from fast_nfl_mcp.core.models import ErrorResponse, SuccessResponse
 from fast_nfl_mcp.tools.schedules import (
     get_schedules_impl,
     normalize_filters,
     validate_seasons,
+)
+from fast_nfl_mcp.utils.constants import (
+    DEFAULT_MAX_ROWS,
+    MAX_SEASONS_SCHEDULES,
+    MIN_SEASON,
 )
 
 
@@ -175,7 +175,7 @@ class TestGetSchedulesImpl:
 
     def test_successful_fetch(self, sample_schedules_df: pd.DataFrame) -> None:
         """Test successful data fetch returns SuccessResponse."""
-        with patch("fast_nfl_mcp.schema_manager.nfl.import_schedules") as mock_import:
+        with patch("fast_nfl_mcp.data.schema.nfl.import_schedules") as mock_import:
             mock_import.return_value = sample_schedules_df
 
             result = get_schedules_impl([2024])
@@ -187,7 +187,7 @@ class TestGetSchedulesImpl:
 
     def test_week_filtering(self, sample_schedules_df: pd.DataFrame) -> None:
         """Test that week filtering works correctly."""
-        with patch("fast_nfl_mcp.schema_manager.nfl.import_schedules") as mock_import:
+        with patch("fast_nfl_mcp.data.schema.nfl.import_schedules") as mock_import:
             mock_import.return_value = sample_schedules_df
 
             result = get_schedules_impl([2024], filters={"week": 1})
@@ -201,7 +201,7 @@ class TestGetSchedulesImpl:
 
     def test_team_filtering(self, sample_schedules_df: pd.DataFrame) -> None:
         """Test that team filtering works correctly."""
-        with patch("fast_nfl_mcp.schema_manager.nfl.import_schedules") as mock_import:
+        with patch("fast_nfl_mcp.data.schema.nfl.import_schedules") as mock_import:
             mock_import.return_value = sample_schedules_df
 
             result = get_schedules_impl([2024], filters={"home_team": "KC"})
@@ -214,7 +214,7 @@ class TestGetSchedulesImpl:
 
     def test_truncation_at_max_rows(self, large_schedules_df: pd.DataFrame) -> None:
         """Test that results are truncated at DEFAULT_MAX_ROWS."""
-        with patch("fast_nfl_mcp.schema_manager.nfl.import_schedules") as mock_import:
+        with patch("fast_nfl_mcp.data.schema.nfl.import_schedules") as mock_import:
             mock_import.return_value = large_schedules_df
 
             result = get_schedules_impl([2024])
@@ -237,7 +237,7 @@ class TestGetSchedulesImpl:
 
     def test_too_many_seasons_warning(self, sample_schedules_df: pd.DataFrame) -> None:
         """Test that exceeding MAX_SEASONS_SCHEDULES produces warning."""
-        with patch("fast_nfl_mcp.schema_manager.nfl.import_schedules") as mock_import:
+        with patch("fast_nfl_mcp.data.schema.nfl.import_schedules") as mock_import:
             mock_import.return_value = sample_schedules_df
 
             # 15 seasons, more than max 10
@@ -250,7 +250,7 @@ class TestGetSchedulesImpl:
 
     def test_pagination_with_offset(self, large_schedules_df: pd.DataFrame) -> None:
         """Test that offset skips rows for pagination."""
-        with patch("fast_nfl_mcp.schema_manager.nfl.import_schedules") as mock_import:
+        with patch("fast_nfl_mcp.data.schema.nfl.import_schedules") as mock_import:
             mock_import.return_value = large_schedules_df
 
             result = get_schedules_impl([2024], offset=10)
@@ -263,7 +263,7 @@ class TestGetSchedulesImpl:
 
     def test_pagination_with_limit(self, large_schedules_df: pd.DataFrame) -> None:
         """Test that limit controls number of rows returned."""
-        with patch("fast_nfl_mcp.schema_manager.nfl.import_schedules") as mock_import:
+        with patch("fast_nfl_mcp.data.schema.nfl.import_schedules") as mock_import:
             mock_import.return_value = large_schedules_df
 
             result = get_schedules_impl([2024], limit=5)
@@ -275,7 +275,7 @@ class TestGetSchedulesImpl:
 
     def test_network_error_handling(self) -> None:
         """Test that network errors return ErrorResponse."""
-        with patch("fast_nfl_mcp.schema_manager.nfl.import_schedules") as mock_import:
+        with patch("fast_nfl_mcp.data.schema.nfl.import_schedules") as mock_import:
             mock_import.side_effect = Exception("Network timeout")
 
             result = get_schedules_impl([2024])
@@ -286,7 +286,7 @@ class TestGetSchedulesImpl:
 
     def test_columns_in_metadata(self, sample_schedules_df: pd.DataFrame) -> None:
         """Test that column names are included in metadata."""
-        with patch("fast_nfl_mcp.schema_manager.nfl.import_schedules") as mock_import:
+        with patch("fast_nfl_mcp.data.schema.nfl.import_schedules") as mock_import:
             mock_import.return_value = sample_schedules_df
 
             result = get_schedules_impl([2024])
@@ -298,7 +298,7 @@ class TestGetSchedulesImpl:
 
     def test_column_selection(self, sample_schedules_df: pd.DataFrame) -> None:
         """Test that specific columns can be selected."""
-        with patch("fast_nfl_mcp.schema_manager.nfl.import_schedules") as mock_import:
+        with patch("fast_nfl_mcp.data.schema.nfl.import_schedules") as mock_import:
             mock_import.return_value = sample_schedules_df
 
             result = get_schedules_impl(

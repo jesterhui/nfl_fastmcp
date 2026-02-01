@@ -9,7 +9,7 @@ import json
 import pytest
 from pydantic import ValidationError
 
-from fast_nfl_mcp.models import (
+from fast_nfl_mcp.core.models import (
     ColumnSchema,
     DatasetSchema,
     ErrorResponse,
