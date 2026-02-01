@@ -689,10 +689,51 @@ class TestLookupPlayer:
             for col in LOOKUP_PLAYER_COLUMNS:
                 assert col in result.metadata.columns
 
-    def test_network_error_handling(self) -> None:
-        """Test that network errors return ErrorResponse."""
+    def test_connection_error_handling(self) -> None:
+        """Test that ConnectionError returns ErrorResponse with network error message."""
         with patch("fast_nfl_mcp.schema_manager.nfl.import_ids") as mock_import:
-            mock_import.side_effect = Exception("Network timeout")
+            mock_import.side_effect = ConnectionError("Unable to connect")
+
+            result = lookup_player_impl("Mahomes")
+
+            assert isinstance(result, ErrorResponse)
+            assert result.success is False
+            assert "Network error" in result.error
+
+    def test_os_error_handling(self) -> None:
+        """Test that OSError returns ErrorResponse with network error message."""
+        with patch("fast_nfl_mcp.schema_manager.nfl.import_ids") as mock_import:
+            mock_import.side_effect = OSError("I/O error")
+
+            result = lookup_player_impl("Mahomes")
+
+            assert isinstance(result, ErrorResponse)
+            assert result.success is False
+            assert "Network error" in result.error
+
+    def test_runtime_error_handling(self) -> None:
+        """Test that RuntimeError returns ErrorResponse."""
+        with patch("fast_nfl_mcp.schema_manager.nfl.import_ids") as mock_import:
+            mock_import.side_effect = RuntimeError("Something went wrong")
+
+            result = lookup_player_impl("Mahomes")
+
+            assert isinstance(result, ErrorResponse)
+            assert result.success is False
+            assert "Error looking up player" in result.error
+
+    def test_keyboard_interrupt_propagates(self) -> None:
+        """Test that KeyboardInterrupt is not caught and propagates correctly."""
+        with patch("fast_nfl_mcp.schema_manager.nfl.import_ids") as mock_import:
+            mock_import.side_effect = KeyboardInterrupt()
+
+            with pytest.raises(KeyboardInterrupt):
+                lookup_player_impl("Mahomes")
+
+    def test_attribute_error_returns_error_response(self) -> None:
+        """Test that AttributeError returns ErrorResponse (not crash)."""
+        with patch("fast_nfl_mcp.schema_manager.nfl.import_ids") as mock_import:
+            mock_import.side_effect = AttributeError("object has no attribute")
 
             result = lookup_player_impl("Mahomes")
 

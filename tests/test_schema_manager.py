@@ -300,10 +300,10 @@ class TestSchemaManagerWithMocks:
             assert "player_name" in column_names
 
     def test_preload_handles_failed_datasets(self) -> None:
-        """Test that failed datasets are tracked."""
+        """Test that failed datasets are tracked when OSError occurs."""
 
         def raise_error(_: object) -> pd.DataFrame:
-            raise Exception("Network error")
+            raise OSError("Network error")
 
         with patch.dict(
             "fast_nfl_mcp.schema_manager.DATASET_DEFINITIONS",
@@ -323,6 +323,74 @@ class TestSchemaManagerWithMocks:
             assert "failing_dataset" in manager.get_failed_datasets()
             assert manager.get_schema("failing_dataset") is None
             assert not manager.is_loaded("failing_dataset")
+
+    def test_preload_handles_connection_error(self) -> None:
+        """Test that ConnectionError is handled during preload."""
+
+        def raise_connection_error(_: object) -> pd.DataFrame:
+            raise ConnectionError("Unable to connect")
+
+        with patch.dict(
+            "fast_nfl_mcp.schema_manager.DATASET_DEFINITIONS",
+            {
+                "failing_dataset": (
+                    raise_connection_error,
+                    "Will fail",
+                    True,
+                    2024,
+                ),
+            },
+            clear=True,
+        ):
+            manager = SchemaManager()
+            manager.preload_all()
+
+            assert "failing_dataset" in manager.get_failed_datasets()
+
+    def test_preload_handles_runtime_error(self) -> None:
+        """Test that RuntimeError is handled during preload."""
+
+        def raise_runtime_error(_: object) -> pd.DataFrame:
+            raise RuntimeError("Something went wrong")
+
+        with patch.dict(
+            "fast_nfl_mcp.schema_manager.DATASET_DEFINITIONS",
+            {
+                "failing_dataset": (
+                    raise_runtime_error,
+                    "Will fail",
+                    True,
+                    2024,
+                ),
+            },
+            clear=True,
+        ):
+            manager = SchemaManager()
+            manager.preload_all()
+
+            assert "failing_dataset" in manager.get_failed_datasets()
+
+    def test_preload_keyboard_interrupt_propagates(self) -> None:
+        """Test that KeyboardInterrupt is not caught and propagates correctly."""
+
+        def raise_keyboard_interrupt(_: object) -> pd.DataFrame:
+            raise KeyboardInterrupt()
+
+        with patch.dict(
+            "fast_nfl_mcp.schema_manager.DATASET_DEFINITIONS",
+            {
+                "interrupt_dataset": (
+                    raise_keyboard_interrupt,
+                    "Will interrupt",
+                    True,
+                    2024,
+                ),
+            },
+            clear=True,
+        ):
+            manager = SchemaManager()
+            with pytest.raises(KeyboardInterrupt):
+                manager.preload_all()
 
     def test_preload_handles_empty_dataframe(self) -> None:
         """Test that empty DataFrames are handled gracefully."""
