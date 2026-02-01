@@ -2,7 +2,8 @@
 
 This module provides Redis-based caching for expensive data operations,
 specifically the player_ids dataset used by lookup_player. The cache
-supports configurable TTL and graceful degradation when Redis is unavailable.
+supports configurable TTL and automatic retry with backoff when Redis
+is temporarily unavailable.
 """
 
 import logging
@@ -11,13 +12,20 @@ import pickle
 from typing import Any
 
 import pandas as pd
+from tenacity import (
+    retry,
+    retry_if_exception_type,
+    stop_after_attempt,
+    wait_exponential,
+)
 
 logger = logging.getLogger(__name__)
 
 # Redis connection instance (lazy initialization)
 _redis_client: Any = None
-_redis_connection_attempted: bool = False
-_redis_available: bool = False
+
+# Cache key constants
+PLAYER_IDS_CACHE_KEY = "fast_nfl_mcp:player_ids"
 
 
 def _get_redis_url() -> str:
@@ -29,43 +37,76 @@ def _get_redis_url() -> str:
     return os.environ.get("REDIS_URL", "redis://localhost:6379")
 
 
-def _get_redis_client() -> Any:
-    """Get or create the Redis client connection.
+class RedisConnectionError(Exception):
+    """Raised when Redis connection fails."""
+
+    pass
+
+
+@retry(
+    retry=retry_if_exception_type(RedisConnectionError),
+    stop=stop_after_attempt(3),
+    wait=wait_exponential(multiplier=1, min=2, max=30),
+    reraise=True,
+)
+def _connect_to_redis() -> Any:
+    """Attempt to connect to Redis with retry logic.
+
+    Uses tenacity to retry connection attempts with exponential backoff.
+    Retries up to 3 times with waits of 2s, 4s, 8s between attempts.
 
     Returns:
-        The Redis client instance, or None if connection failed.
+        The connected Redis client.
+
+    Raises:
+        RedisConnectionError: If connection fails after all retries.
     """
-    global _redis_client, _redis_connection_attempted, _redis_available
-
-    # Only attempt connection once
-    if _redis_connection_attempted:
-        return _redis_client if _redis_available else None
-
-    _redis_connection_attempted = True
-
     try:
         import redis
 
         redis_url = _get_redis_url()
         logger.info(f"Connecting to Redis at {redis_url}")
-        _redis_client = redis.from_url(
+        client = redis.from_url(
             redis_url,
             decode_responses=False,  # We need bytes for pickle
             socket_connect_timeout=5,
             socket_timeout=5,
         )
         # Test connection
-        _redis_client.ping()
-        _redis_available = True
+        client.ping()
         logger.info("Redis connection established")
-        return _redis_client
+        return client
     except ImportError:
         logger.warning("redis package not installed, caching disabled")
-        _redis_available = False
-        return None
+        raise RedisConnectionError("redis package not installed") from None
     except Exception as e:
-        logger.warning(f"Redis connection failed: {e}. Caching disabled.")
-        _redis_available = False
+        logger.warning(f"Redis connection attempt failed: {e}")
+        raise RedisConnectionError(str(e)) from e
+
+
+def _get_redis_client() -> Any:
+    """Get or create the Redis client connection.
+
+    Returns:
+        The Redis client instance, or None if connection failed.
+    """
+    global _redis_client
+
+    # If already connected, verify connection is still alive
+    if _redis_client is not None:
+        try:
+            _redis_client.ping()
+            return _redis_client
+        except Exception:
+            logger.warning("Redis connection lost, attempting to reconnect")
+            _redis_client = None
+
+    # Attempt to connect with retry
+    try:
+        _redis_client = _connect_to_redis()
+        return _redis_client
+    except RedisConnectionError as e:
+        logger.warning(f"Redis connection failed after retries: {e}")
         return None
 
 
@@ -75,12 +116,7 @@ def is_redis_available() -> bool:
     Returns:
         True if Redis is connected and available, False otherwise.
     """
-    global _redis_connection_attempted, _redis_available
-
-    if not _redis_connection_attempted:
-        _get_redis_client()
-
-    return _redis_available
+    return _get_redis_client() is not None
 
 
 def get_cached_dataframe(key: str) -> pd.DataFrame | None:
@@ -166,11 +202,5 @@ def reset_redis_connection() -> None:
 
     This allows re-attempting a connection after a previous failure.
     """
-    global _redis_client, _redis_connection_attempted, _redis_available
+    global _redis_client
     _redis_client = None
-    _redis_connection_attempted = False
-    _redis_available = False
-
-
-# Cache key constants
-PLAYER_IDS_CACHE_KEY = "fast_nfl_mcp:player_ids"

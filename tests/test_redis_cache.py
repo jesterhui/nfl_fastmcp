@@ -48,8 +48,8 @@ class TestRedisConnection:
             result = is_redis_available()
             assert result is True
 
-    def test_connection_attempted_only_once(self) -> None:
-        """Test that connection is only attempted once."""
+    def test_connection_reused_when_successful(self) -> None:
+        """Test that successful connection is reused on subsequent calls."""
         mock_client = MagicMock()
         mock_client.ping.return_value = True
 
@@ -59,8 +59,46 @@ class TestRedisConnection:
             is_redis_available()
             is_redis_available()
 
-            # Should only call from_url once
+            # Should only call from_url once (connection is reused)
             mock_from_url.assert_called_once()
+
+    def test_connection_retries_on_failure(self) -> None:
+        """Test that connection retries with tenacity on failure."""
+        with patch("redis.from_url") as mock_from_url:
+            mock_from_url.side_effect = Exception("Connection refused")
+
+            # This should retry 3 times before giving up
+            result = is_redis_available()
+
+            assert result is False
+            # tenacity retries 3 times
+            assert mock_from_url.call_count == 3
+
+    def test_reconnects_when_connection_lost(self) -> None:
+        """Test that reconnection is attempted when existing connection is lost."""
+        mock_client = MagicMock()
+        # First ping succeeds, second fails (connection lost), then reconnect succeeds
+        mock_client.ping.side_effect = [True, Exception("Connection lost"), True]
+
+        new_mock_client = MagicMock()
+        new_mock_client.ping.return_value = True
+
+        call_count = 0
+
+        def mock_from_url_side_effect(*args: object, **kwargs: object) -> MagicMock:
+            nonlocal call_count
+            call_count += 1
+            if call_count == 1:
+                return mock_client
+            return new_mock_client
+
+        with patch("redis.from_url", side_effect=mock_from_url_side_effect):
+            # First call - establishes connection
+            assert is_redis_available() is True
+
+            # Second call - ping fails, triggers reconnection
+            reset_redis_connection()  # Simulate lost connection
+            assert is_redis_available() is True
 
     def test_redis_url_from_environment(self) -> None:
         """Test that Redis URL is read from environment variable."""

@@ -55,31 +55,7 @@ LOOKUP_PLAYER_MAX_LIMIT: int = 100
 
 # Cache TTL for player_ids dataset used by lookup_player (in seconds)
 # Default: 1 hour (3600 seconds)
-# Can be overridden via PLAYER_IDS_CACHE_TTL_SECONDS environment variable
 DEFAULT_PLAYER_IDS_CACHE_TTL_SECONDS: int = 3600
-
-
-def get_player_ids_cache_ttl() -> int:
-    """Get the cache TTL for player_ids dataset.
-
-    Reads from PLAYER_IDS_CACHE_TTL_SECONDS environment variable if set,
-    otherwise uses the default value of 3600 seconds (1 hour).
-
-    Returns:
-        The cache TTL in seconds.
-    """
-    import os
-
-    env_value = os.environ.get("PLAYER_IDS_CACHE_TTL_SECONDS")
-    if env_value is not None:
-        try:
-            ttl = int(env_value)
-            if ttl > 0:
-                return ttl
-        except ValueError:
-            pass
-    return DEFAULT_PLAYER_IDS_CACHE_TTL_SECONDS
-
 
 # Columns returned by lookup_player
 LOOKUP_PLAYER_COLUMNS: list[str] = [

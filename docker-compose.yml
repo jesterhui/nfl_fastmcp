@@ -24,7 +24,6 @@ services:
     environment:
       - NFL_CACHE_DIR=/app/cache
       - REDIS_URL=redis://redis:6379
-      - PLAYER_IDS_CACHE_TTL_SECONDS=3600
     volumes:
       - nfl-cache:/app/cache
       - ~/.kaggle:/home/appuser/.kaggle:ro
