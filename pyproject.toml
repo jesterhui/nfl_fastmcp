@@ -21,6 +21,7 @@ dependencies = [
     "nfl-data-py>=0.3.0",
     "pandas>=2.0.0",
     "pydantic>=2.0.0",
+    "redis>=5.0.0",
 ]
 
 [project.optional-dependencies]
@@ -97,6 +98,10 @@ ignore_missing_imports = true
 
 [[tool.mypy.overrides]]
 module = ["fastmcp.*", "fastmcp"]
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = ["redis.*", "redis"]
 ignore_missing_imports = true
 
 [tool.pytest.ini_options]
