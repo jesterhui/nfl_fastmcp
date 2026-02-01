@@ -14,6 +14,7 @@ import pytest
 from fast_nfl_mcp.constants import DEFAULT_MAX_ROWS, get_current_season_year
 from fast_nfl_mcp.data_fetcher import DataFetcher
 from fast_nfl_mcp.models import ErrorResponse, SuccessResponse
+from fast_nfl_mcp.types import DatasetDefinition
 
 
 class TestDataFetcherInit:
@@ -144,10 +145,10 @@ class TestDataFetcherFetchWithMocks:
         with patch.dict(
             "fast_nfl_mcp.data_fetcher.DATASET_DEFINITIONS",
             {
-                "test_dataset": (
-                    lambda _: sample_dataframe,
-                    "Test description",
-                    True,
+                "test_dataset": DatasetDefinition(
+                    loader=lambda _: sample_dataframe,
+                    description="Test description",
+                    supports_seasons=True,
                 ),
             },
             clear=True,
@@ -173,10 +174,10 @@ class TestDataFetcherFetchWithMocks:
         with patch.dict(
             "fast_nfl_mcp.data_fetcher.DATASET_DEFINITIONS",
             {
-                "test_dataset": (
-                    mock_loader,
-                    "Test description",
-                    True,
+                "test_dataset": DatasetDefinition(
+                    loader=mock_loader,
+                    description="Test description",
+                    supports_seasons=True,
                 ),
             },
             clear=True,
@@ -197,10 +198,10 @@ class TestDataFetcherFetchWithMocks:
         with patch.dict(
             "fast_nfl_mcp.data_fetcher.DATASET_DEFINITIONS",
             {
-                "test_dataset": (
-                    mock_loader,
-                    "Test description",
-                    True,
+                "test_dataset": DatasetDefinition(
+                    loader=mock_loader,
+                    description="Test description",
+                    supports_seasons=True,
                 ),
             },
             clear=True,
@@ -215,10 +216,10 @@ class TestDataFetcherFetchWithMocks:
         with patch.dict(
             "fast_nfl_mcp.data_fetcher.DATASET_DEFINITIONS",
             {
-                "test_dataset": (
-                    lambda _: large_dataframe,
-                    "Large dataset",
-                    True,
+                "test_dataset": DatasetDefinition(
+                    loader=lambda _: large_dataframe,
+                    description="Large dataset",
+                    supports_seasons=True,
                 ),
             },
             clear=True,
@@ -239,10 +240,10 @@ class TestDataFetcherFetchWithMocks:
         with patch.dict(
             "fast_nfl_mcp.data_fetcher.DATASET_DEFINITIONS",
             {
-                "test_dataset": (
-                    lambda _: large_dataframe,
-                    "Large dataset",
-                    True,
+                "test_dataset": DatasetDefinition(
+                    loader=lambda _: large_dataframe,
+                    description="Large dataset",
+                    supports_seasons=True,
                 ),
             },
             clear=True,
@@ -263,10 +264,10 @@ class TestDataFetcherFetchWithMocks:
         with patch.dict(
             "fast_nfl_mcp.data_fetcher.DATASET_DEFINITIONS",
             {
-                "test_dataset": (
-                    lambda _: sample_dataframe,
-                    "Test description",
-                    True,
+                "test_dataset": DatasetDefinition(
+                    loader=lambda _: sample_dataframe,
+                    description="Test description",
+                    supports_seasons=True,
                 ),
             },
             clear=True,
@@ -291,10 +292,10 @@ class TestDataFetcherFetchWithMocks:
         with patch.dict(
             "fast_nfl_mcp.data_fetcher.DATASET_DEFINITIONS",
             {
-                "non_seasonal": (
-                    mock_loader,
-                    "Non-seasonal data",
-                    False,
+                "non_seasonal": DatasetDefinition(
+                    loader=mock_loader,
+                    description="Non-seasonal data",
+                    supports_seasons=False,
                 ),
             },
             clear=True,
@@ -310,10 +311,10 @@ class TestDataFetcherFetchWithMocks:
         with patch.dict(
             "fast_nfl_mcp.data_fetcher.DATASET_DEFINITIONS",
             {
-                "test_dataset": (
-                    lambda _: large_dataframe,
-                    "Large dataset",
-                    True,
+                "test_dataset": DatasetDefinition(
+                    loader=lambda _: large_dataframe,
+                    description="Large dataset",
+                    supports_seasons=True,
                 ),
             },
             clear=True,
@@ -332,10 +333,10 @@ class TestDataFetcherFetchWithMocks:
         with patch.dict(
             "fast_nfl_mcp.data_fetcher.DATASET_DEFINITIONS",
             {
-                "test_dataset": (
-                    lambda _: large_dataframe,
-                    "Large dataset",
-                    True,
+                "test_dataset": DatasetDefinition(
+                    loader=lambda _: large_dataframe,
+                    description="Large dataset",
+                    supports_seasons=True,
                 ),
             },
             clear=True,
@@ -354,10 +355,10 @@ class TestDataFetcherFetchWithMocks:
         with patch.dict(
             "fast_nfl_mcp.data_fetcher.DATASET_DEFINITIONS",
             {
-                "test_dataset": (
-                    lambda _: large_dataframe,
-                    "Large dataset",
-                    True,
+                "test_dataset": DatasetDefinition(
+                    loader=lambda _: large_dataframe,
+                    description="Large dataset",
+                    supports_seasons=True,
                 ),
             },
             clear=True,
@@ -376,10 +377,10 @@ class TestDataFetcherFetchWithMocks:
         with patch.dict(
             "fast_nfl_mcp.data_fetcher.DATASET_DEFINITIONS",
             {
-                "test_dataset": (
-                    lambda _: large_dataframe,
-                    "Large dataset",
-                    True,
+                "test_dataset": DatasetDefinition(
+                    loader=lambda _: large_dataframe,
+                    description="Large dataset",
+                    supports_seasons=True,
                 ),
             },
             clear=True,
@@ -399,10 +400,10 @@ class TestDataFetcherFetchWithMocks:
         with patch.dict(
             "fast_nfl_mcp.data_fetcher.DATASET_DEFINITIONS",
             {
-                "test_dataset": (
-                    lambda _: large_dataframe,
-                    "Large dataset",
-                    True,
+                "test_dataset": DatasetDefinition(
+                    loader=lambda _: large_dataframe,
+                    description="Large dataset",
+                    supports_seasons=True,
                 ),
             },
             clear=True,
@@ -427,10 +428,10 @@ class TestDataFetcherErrorHandling:
         with patch.dict(
             "fast_nfl_mcp.data_fetcher.DATASET_DEFINITIONS",
             {
-                "failing_dataset": (
-                    raise_connection_error,
-                    "Will fail",
-                    True,
+                "failing_dataset": DatasetDefinition(
+                    loader=raise_connection_error,
+                    description="Will fail",
+                    supports_seasons=True,
                 ),
             },
             clear=True,
@@ -453,10 +454,10 @@ class TestDataFetcherErrorHandling:
         with patch.dict(
             "fast_nfl_mcp.data_fetcher.DATASET_DEFINITIONS",
             {
-                "slow_dataset": (
-                    raise_timeout_error,
-                    "Will timeout",
-                    True,
+                "slow_dataset": DatasetDefinition(
+                    loader=raise_timeout_error,
+                    description="Will timeout",
+                    supports_seasons=True,
                 ),
             },
             clear=True,
@@ -477,10 +478,10 @@ class TestDataFetcherErrorHandling:
         with patch.dict(
             "fast_nfl_mcp.data_fetcher.DATASET_DEFINITIONS",
             {
-                "dataset": (
-                    raise_value_error,
-                    "Invalid params",
-                    True,
+                "dataset": DatasetDefinition(
+                    loader=raise_value_error,
+                    description="Invalid params",
+                    supports_seasons=True,
                 ),
             },
             clear=True,
@@ -503,10 +504,10 @@ class TestDataFetcherErrorHandling:
         with patch.dict(
             "fast_nfl_mcp.data_fetcher.DATASET_DEFINITIONS",
             {
-                "broken_dataset": (
-                    raise_runtime_error,
-                    "Will break",
-                    True,
+                "broken_dataset": DatasetDefinition(
+                    loader=raise_runtime_error,
+                    description="Will break",
+                    supports_seasons=True,
                 ),
             },
             clear=True,
@@ -527,10 +528,10 @@ class TestDataFetcherErrorHandling:
         with patch.dict(
             "fast_nfl_mcp.data_fetcher.DATASET_DEFINITIONS",
             {
-                "broken_dataset": (
-                    raise_os_error,
-                    "Will break",
-                    True,
+                "broken_dataset": DatasetDefinition(
+                    loader=raise_os_error,
+                    description="Will break",
+                    supports_seasons=True,
                 ),
             },
             clear=True,
@@ -551,10 +552,10 @@ class TestDataFetcherErrorHandling:
         with patch.dict(
             "fast_nfl_mcp.data_fetcher.DATASET_DEFINITIONS",
             {
-                "interrupt_dataset": (
-                    raise_keyboard_interrupt,
-                    "Will interrupt",
-                    True,
+                "interrupt_dataset": DatasetDefinition(
+                    loader=raise_keyboard_interrupt,
+                    description="Will interrupt",
+                    supports_seasons=True,
                 ),
             },
             clear=True,
@@ -572,10 +573,10 @@ class TestDataFetcherErrorHandling:
         with patch.dict(
             "fast_nfl_mcp.data_fetcher.DATASET_DEFINITIONS",
             {
-                "exit_dataset": (
-                    raise_system_exit,
-                    "Will exit",
-                    True,
+                "exit_dataset": DatasetDefinition(
+                    loader=raise_system_exit,
+                    description="Will exit",
+                    supports_seasons=True,
                 ),
             },
             clear=True,
@@ -593,10 +594,10 @@ class TestDataFetcherErrorHandling:
         with patch.dict(
             "fast_nfl_mcp.data_fetcher.DATASET_DEFINITIONS",
             {
-                "buggy_dataset": (
-                    raise_attribute_error,
-                    "Will fail",
-                    True,
+                "buggy_dataset": DatasetDefinition(
+                    loader=raise_attribute_error,
+                    description="Will fail",
+                    supports_seasons=True,
                 ),
             },
             clear=True,
@@ -617,10 +618,10 @@ class TestDataFetcherErrorHandling:
         with patch.dict(
             "fast_nfl_mcp.data_fetcher.DATASET_DEFINITIONS",
             {
-                "buggy_dataset": (
-                    raise_type_error,
-                    "Will fail",
-                    True,
+                "buggy_dataset": DatasetDefinition(
+                    loader=raise_type_error,
+                    description="Will fail",
+                    supports_seasons=True,
                 ),
             },
             clear=True,
@@ -639,10 +640,10 @@ class TestDataFetcherErrorHandling:
         with patch.dict(
             "fast_nfl_mcp.data_fetcher.DATASET_DEFINITIONS",
             {
-                "empty_dataset": (
-                    lambda _: empty_df,
-                    "Empty data",
-                    True,
+                "empty_dataset": DatasetDefinition(
+                    loader=lambda _: empty_df,
+                    description="Empty data",
+                    supports_seasons=True,
                 ),
             },
             clear=True,
@@ -661,10 +662,10 @@ class TestDataFetcherErrorHandling:
         with patch.dict(
             "fast_nfl_mcp.data_fetcher.DATASET_DEFINITIONS",
             {
-                "null_dataset": (
-                    lambda _: None,
-                    "Returns None",
-                    True,
+                "null_dataset": DatasetDefinition(
+                    loader=lambda _: None,
+                    description="Returns None",
+                    supports_seasons=True,
                 ),
             },
             clear=True,
@@ -693,7 +694,9 @@ class TestDataFetcherDataConversion:
         with patch.dict(
             "fast_nfl_mcp.data_fetcher.DATASET_DEFINITIONS",
             {
-                "test": (lambda _: df, "Test", True),
+                "test": DatasetDefinition(
+                    loader=lambda _: df, description="Test", supports_seasons=True
+                ),
             },
             clear=True,
         ):
@@ -717,7 +720,9 @@ class TestDataFetcherDataConversion:
         with patch.dict(
             "fast_nfl_mcp.data_fetcher.DATASET_DEFINITIONS",
             {
-                "test": (lambda _: df, "Test", True),
+                "test": DatasetDefinition(
+                    loader=lambda _: df, description="Test", supports_seasons=True
+                ),
             },
             clear=True,
         ):
@@ -740,7 +745,9 @@ class TestDataFetcherDataConversion:
         with patch.dict(
             "fast_nfl_mcp.data_fetcher.DATASET_DEFINITIONS",
             {
-                "test": (lambda _: df, "Test", True),
+                "test": DatasetDefinition(
+                    loader=lambda _: df, description="Test", supports_seasons=True
+                ),
             },
             clear=True,
         ):
@@ -764,7 +771,9 @@ class TestDataFetcherDataConversion:
         with patch.dict(
             "fast_nfl_mcp.data_fetcher.DATASET_DEFINITIONS",
             {
-                "test": (lambda _: df, "Test", True),
+                "test": DatasetDefinition(
+                    loader=lambda _: df, description="Test", supports_seasons=True
+                ),
             },
             clear=True,
         ):
@@ -787,7 +796,9 @@ class TestDataFetcherDataConversion:
         with patch.dict(
             "fast_nfl_mcp.data_fetcher.DATASET_DEFINITIONS",
             {
-                "test": (lambda _: df, "Test", True),
+                "test": DatasetDefinition(
+                    loader=lambda _: df, description="Test", supports_seasons=True
+                ),
             },
             clear=True,
         ):
@@ -813,7 +824,9 @@ class TestDataFetcherDataConversion:
         with patch.dict(
             "fast_nfl_mcp.data_fetcher.DATASET_DEFINITIONS",
             {
-                "test": (lambda _: df, "Test", True),
+                "test": DatasetDefinition(
+                    loader=lambda _: df, description="Test", supports_seasons=True
+                ),
             },
             clear=True,
         ):
@@ -835,7 +848,9 @@ class TestDataFetcherFilterWarnings:
         with patch.dict(
             "fast_nfl_mcp.data_fetcher.DATASET_DEFINITIONS",
             {
-                "test": (lambda _: df, "Test", True),
+                "test": DatasetDefinition(
+                    loader=lambda _: df, description="Test", supports_seasons=True
+                ),
             },
             clear=True,
         ):
@@ -854,7 +869,9 @@ class TestDataFetcherFilterWarnings:
         with patch.dict(
             "fast_nfl_mcp.data_fetcher.DATASET_DEFINITIONS",
             {
-                "test": (lambda _: df, "Test", True),
+                "test": DatasetDefinition(
+                    loader=lambda _: df, description="Test", supports_seasons=True
+                ),
             },
             clear=True,
         ):
@@ -873,7 +890,9 @@ class TestDataFetcherFilterWarnings:
         with patch.dict(
             "fast_nfl_mcp.data_fetcher.DATASET_DEFINITIONS",
             {
-                "test": (lambda _: df, "Test", True),
+                "test": DatasetDefinition(
+                    loader=lambda _: df, description="Test", supports_seasons=True
+                ),
             },
             clear=True,
         ):
@@ -892,7 +911,9 @@ class TestDataFetcherFilterWarnings:
         with patch.dict(
             "fast_nfl_mcp.data_fetcher.DATASET_DEFINITIONS",
             {
-                "test": (lambda _: df, "Test", True),
+                "test": DatasetDefinition(
+                    loader=lambda _: df, description="Test", supports_seasons=True
+                ),
             },
             clear=True,
         ):
@@ -916,7 +937,9 @@ class TestDataFetcherFilterWarnings:
         with patch.dict(
             "fast_nfl_mcp.data_fetcher.DATASET_DEFINITIONS",
             {
-                "test": (lambda _: df, "Test", True),
+                "test": DatasetDefinition(
+                    loader=lambda _: df, description="Test", supports_seasons=True
+                ),
             },
             clear=True,
         ):
@@ -946,7 +969,9 @@ class TestDataFetcherParamsHandling:
         with patch.dict(
             "fast_nfl_mcp.data_fetcher.DATASET_DEFINITIONS",
             {
-                "test": (mock_loader, "Test", True),
+                "test": DatasetDefinition(
+                    loader=mock_loader, description="Test", supports_seasons=True
+                ),
             },
             clear=True,
         ):
@@ -968,7 +993,9 @@ class TestDataFetcherParamsHandling:
         with patch.dict(
             "fast_nfl_mcp.data_fetcher.DATASET_DEFINITIONS",
             {
-                "test": (mock_loader, "Test", True),
+                "test": DatasetDefinition(
+                    loader=mock_loader, description="Test", supports_seasons=True
+                ),
             },
             clear=True,
         ):
@@ -986,7 +1013,9 @@ class TestDataFetcherParamsHandling:
         with patch.dict(
             "fast_nfl_mcp.data_fetcher.DATASET_DEFINITIONS",
             {
-                "test": (lambda _: df, "Test", True),
+                "test": DatasetDefinition(
+                    loader=lambda _: df, description="Test", supports_seasons=True
+                ),
             },
             clear=True,
         ):
@@ -1007,7 +1036,9 @@ class TestDataFetcherColumnSelection:
         with patch.dict(
             "fast_nfl_mcp.data_fetcher.DATASET_DEFINITIONS",
             {
-                "test": (lambda _: df, "Test", True),
+                "test": DatasetDefinition(
+                    loader=lambda _: df, description="Test", supports_seasons=True
+                ),
             },
             clear=True,
         ):
@@ -1025,7 +1056,9 @@ class TestDataFetcherColumnSelection:
         with patch.dict(
             "fast_nfl_mcp.data_fetcher.DATASET_DEFINITIONS",
             {
-                "test": (lambda _: df, "Test", True),
+                "test": DatasetDefinition(
+                    loader=lambda _: df, description="Test", supports_seasons=True
+                ),
             },
             clear=True,
         ):
@@ -1045,7 +1078,9 @@ class TestDataFetcherColumnSelection:
         with patch.dict(
             "fast_nfl_mcp.data_fetcher.DATASET_DEFINITIONS",
             {
-                "test": (lambda _: df, "Test", True),
+                "test": DatasetDefinition(
+                    loader=lambda _: df, description="Test", supports_seasons=True
+                ),
             },
             clear=True,
         ):
@@ -1063,7 +1098,9 @@ class TestDataFetcherColumnSelection:
         with patch.dict(
             "fast_nfl_mcp.data_fetcher.DATASET_DEFINITIONS",
             {
-                "test": (lambda _: df, "Test", True),
+                "test": DatasetDefinition(
+                    loader=lambda _: df, description="Test", supports_seasons=True
+                ),
             },
             clear=True,
         ):
@@ -1081,7 +1118,9 @@ class TestDataFetcherColumnSelection:
         with patch.dict(
             "fast_nfl_mcp.data_fetcher.DATASET_DEFINITIONS",
             {
-                "test": (lambda _: df, "Test", True),
+                "test": DatasetDefinition(
+                    loader=lambda _: df, description="Test", supports_seasons=True
+                ),
             },
             clear=True,
         ):
@@ -1225,7 +1264,9 @@ class TestDataFetcherFiltersViaFetch:
         with patch.dict(
             "fast_nfl_mcp.data_fetcher.DATASET_DEFINITIONS",
             {
-                "test": (lambda _: df, "Test", True),
+                "test": DatasetDefinition(
+                    loader=lambda _: df, description="Test", supports_seasons=True
+                ),
             },
             clear=True,
         ):
@@ -1248,7 +1289,9 @@ class TestDataFetcherFiltersViaFetch:
         with patch.dict(
             "fast_nfl_mcp.data_fetcher.DATASET_DEFINITIONS",
             {
-                "test": (lambda _: df, "Test", True),
+                "test": DatasetDefinition(
+                    loader=lambda _: df, description="Test", supports_seasons=True
+                ),
             },
             clear=True,
         ):
@@ -1273,7 +1316,9 @@ class TestDataFetcherFiltersViaFetch:
         with patch.dict(
             "fast_nfl_mcp.data_fetcher.DATASET_DEFINITIONS",
             {
-                "test": (lambda _: df, "Test", True),
+                "test": DatasetDefinition(
+                    loader=lambda _: df, description="Test", supports_seasons=True
+                ),
             },
             clear=True,
         ):
@@ -1291,7 +1336,9 @@ class TestDataFetcherFiltersViaFetch:
         with patch.dict(
             "fast_nfl_mcp.data_fetcher.DATASET_DEFINITIONS",
             {
-                "test": (lambda _: df, "Test", True),
+                "test": DatasetDefinition(
+                    loader=lambda _: df, description="Test", supports_seasons=True
+                ),
             },
             clear=True,
         ):
@@ -1314,7 +1361,9 @@ class TestDataFetcherFiltersViaFetch:
         with patch.dict(
             "fast_nfl_mcp.data_fetcher.DATASET_DEFINITIONS",
             {
-                "test": (lambda _: df, "Test", True),
+                "test": DatasetDefinition(
+                    loader=lambda _: df, description="Test", supports_seasons=True
+                ),
             },
             clear=True,
         ):
@@ -1327,34 +1376,34 @@ class TestDataFetcherFiltersViaFetch:
             assert set(response.metadata.columns) == {"team", "week", "score"}
 
 
-class TestDataFetcherConvertDataframeToRecords:
-    """Tests for _convert_dataframe_to_records method edge cases."""
+class TestConvertDataframeToRecords:
+    """Tests for convert_dataframe_to_records function edge cases."""
 
     def test_convert_empty_dataframe(self) -> None:
         """Test converting an empty DataFrame."""
-        fetcher = DataFetcher()
-        df = pd.DataFrame()
+        from fast_nfl_mcp.serialization import convert_dataframe_to_records
 
-        records, columns = fetcher._convert_dataframe_to_records(df)
+        df = pd.DataFrame()
+        records, columns = convert_dataframe_to_records(df)
 
         assert records == []
         assert columns == []
 
     def test_convert_none_dataframe(self) -> None:
         """Test converting None input."""
-        fetcher = DataFetcher()
+        from fast_nfl_mcp.serialization import convert_dataframe_to_records
 
-        records, columns = fetcher._convert_dataframe_to_records(None)  # type: ignore[arg-type]
+        records, columns = convert_dataframe_to_records(None)  # type: ignore[arg-type]
 
         assert records == []
         assert columns == []
 
     def test_convert_np_nan_to_none(self) -> None:
         """Test that np.nan is converted to None."""
-        fetcher = DataFetcher()
-        df = pd.DataFrame({"col": [1.0, np.nan, 3.0]})
+        from fast_nfl_mcp.serialization import convert_dataframe_to_records
 
-        records, _ = fetcher._convert_dataframe_to_records(df)
+        df = pd.DataFrame({"col": [1.0, np.nan, 3.0]})
+        records, _ = convert_dataframe_to_records(df)
 
         assert records[0]["col"] == 1.0
         assert records[1]["col"] is None
@@ -1362,10 +1411,10 @@ class TestDataFetcherConvertDataframeToRecords:
 
     def test_convert_pd_na_to_none(self) -> None:
         """Test that pd.NA is converted to None."""
-        fetcher = DataFetcher()
-        df = pd.DataFrame({"col": pd.array([1, pd.NA, 3], dtype="Int64")})
+        from fast_nfl_mcp.serialization import convert_dataframe_to_records
 
-        records, _ = fetcher._convert_dataframe_to_records(df)
+        df = pd.DataFrame({"col": pd.array([1, pd.NA, 3], dtype="Int64")})
+        records, _ = convert_dataframe_to_records(df)
 
         assert records[0]["col"] == 1
         assert records[1]["col"] is None
@@ -1373,10 +1422,10 @@ class TestDataFetcherConvertDataframeToRecords:
 
     def test_convert_none_in_object_column(self) -> None:
         """Test that Python None in object columns is preserved."""
-        fetcher = DataFetcher()
-        df = pd.DataFrame({"col": ["a", None, "c"]})
+        from fast_nfl_mcp.serialization import convert_dataframe_to_records
 
-        records, _ = fetcher._convert_dataframe_to_records(df)
+        df = pd.DataFrame({"col": ["a", None, "c"]})
+        records, _ = convert_dataframe_to_records(df)
 
         assert records[0]["col"] == "a"
         assert records[1]["col"] is None
@@ -1384,50 +1433,50 @@ class TestDataFetcherConvertDataframeToRecords:
 
     def test_convert_numpy_int32_to_python_int(self) -> None:
         """Test that numpy int32 is converted to Python int."""
-        fetcher = DataFetcher()
-        df = pd.DataFrame({"col": np.array([1, 2, 3], dtype=np.int32)})
+        from fast_nfl_mcp.serialization import convert_dataframe_to_records
 
-        records, _ = fetcher._convert_dataframe_to_records(df)
+        df = pd.DataFrame({"col": np.array([1, 2, 3], dtype=np.int32)})
+        records, _ = convert_dataframe_to_records(df)
 
         assert records[0]["col"] == 1
         assert isinstance(records[0]["col"], int)
 
     def test_convert_numpy_int64_to_python_int(self) -> None:
         """Test that numpy int64 is converted to Python int."""
-        fetcher = DataFetcher()
-        df = pd.DataFrame({"col": np.array([1, 2, 3], dtype=np.int64)})
+        from fast_nfl_mcp.serialization import convert_dataframe_to_records
 
-        records, _ = fetcher._convert_dataframe_to_records(df)
+        df = pd.DataFrame({"col": np.array([1, 2, 3], dtype=np.int64)})
+        records, _ = convert_dataframe_to_records(df)
 
         assert records[0]["col"] == 1
         assert isinstance(records[0]["col"], int)
 
     def test_convert_numpy_float32_to_python_float(self) -> None:
         """Test that numpy float32 is converted to Python float."""
-        fetcher = DataFetcher()
-        df = pd.DataFrame({"col": np.array([1.5, 2.5, 3.5], dtype=np.float32)})
+        from fast_nfl_mcp.serialization import convert_dataframe_to_records
 
-        records, _ = fetcher._convert_dataframe_to_records(df)
+        df = pd.DataFrame({"col": np.array([1.5, 2.5, 3.5], dtype=np.float32)})
+        records, _ = convert_dataframe_to_records(df)
 
         assert isinstance(records[0]["col"], float)
         assert abs(records[0]["col"] - 1.5) < 0.01
 
     def test_convert_numpy_float64_to_python_float(self) -> None:
         """Test that numpy float64 is converted to Python float."""
-        fetcher = DataFetcher()
-        df = pd.DataFrame({"col": np.array([1.5, 2.5, 3.5], dtype=np.float64)})
+        from fast_nfl_mcp.serialization import convert_dataframe_to_records
 
-        records, _ = fetcher._convert_dataframe_to_records(df)
+        df = pd.DataFrame({"col": np.array([1.5, 2.5, 3.5], dtype=np.float64)})
+        records, _ = convert_dataframe_to_records(df)
 
         assert records[0]["col"] == 1.5
         assert isinstance(records[0]["col"], float)
 
     def test_convert_numpy_bool_to_python_bool(self) -> None:
         """Test that numpy bool is converted to Python bool."""
-        fetcher = DataFetcher()
-        df = pd.DataFrame({"col": np.array([True, False, True], dtype=np.bool_)})
+        from fast_nfl_mcp.serialization import convert_dataframe_to_records
 
-        records, _ = fetcher._convert_dataframe_to_records(df)
+        df = pd.DataFrame({"col": np.array([True, False, True], dtype=np.bool_)})
+        records, _ = convert_dataframe_to_records(df)
 
         assert records[0]["col"] is True
         assert records[1]["col"] is False
@@ -1435,12 +1484,12 @@ class TestDataFetcherConvertDataframeToRecords:
 
     def test_convert_timestamp_to_string(self) -> None:
         """Test that pd.Timestamp is converted to string."""
-        fetcher = DataFetcher()
+        from fast_nfl_mcp.serialization import convert_dataframe_to_records
+
         df = pd.DataFrame(
             {"col": pd.to_datetime(["2024-01-15", "2024-06-30", "2024-12-25"])}
         )
-
-        records, _ = fetcher._convert_dataframe_to_records(df)
+        records, _ = convert_dataframe_to_records(df)
 
         assert isinstance(records[0]["col"], str)
         assert "2024-01-15" in records[0]["col"]
@@ -1448,12 +1497,12 @@ class TestDataFetcherConvertDataframeToRecords:
 
     def test_convert_timestamp_with_time(self) -> None:
         """Test that pd.Timestamp with time component is converted to string."""
-        fetcher = DataFetcher()
+        from fast_nfl_mcp.serialization import convert_dataframe_to_records
+
         df = pd.DataFrame(
             {"col": pd.to_datetime(["2024-01-15 14:30:00", "2024-06-30 08:00:00"])}
         )
-
-        records, _ = fetcher._convert_dataframe_to_records(df)
+        records, _ = convert_dataframe_to_records(df)
 
         assert isinstance(records[0]["col"], str)
         assert "2024-01-15" in records[0]["col"]
@@ -1461,10 +1510,10 @@ class TestDataFetcherConvertDataframeToRecords:
 
     def test_convert_timestamp_nat_to_none(self) -> None:
         """Test that pd.NaT (Not a Time) is converted to None."""
-        fetcher = DataFetcher()
-        df = pd.DataFrame({"col": pd.to_datetime(["2024-01-15", pd.NaT, "2024-12-25"])})
+        from fast_nfl_mcp.serialization import convert_dataframe_to_records
 
-        records, _ = fetcher._convert_dataframe_to_records(df)
+        df = pd.DataFrame({"col": pd.to_datetime(["2024-01-15", pd.NaT, "2024-12-25"])})
+        records, _ = convert_dataframe_to_records(df)
 
         assert isinstance(records[0]["col"], str)
         assert records[1]["col"] is None
@@ -1472,18 +1521,19 @@ class TestDataFetcherConvertDataframeToRecords:
 
     def test_columns_converted_to_strings(self) -> None:
         """Test that column names are converted to strings."""
-        fetcher = DataFetcher()
+        from fast_nfl_mcp.serialization import convert_dataframe_to_records
+
         # DataFrame with integer column names
         df = pd.DataFrame({0: [1, 2], 1: [3, 4]})
-
-        _, columns = fetcher._convert_dataframe_to_records(df)
+        _, columns = convert_dataframe_to_records(df)
 
         assert columns == ["0", "1"]
         assert all(isinstance(c, str) for c in columns)
 
     def test_mixed_types_in_dataframe(self) -> None:
         """Test conversion with mixed types in a single DataFrame."""
-        fetcher = DataFetcher()
+        from fast_nfl_mcp.serialization import convert_dataframe_to_records
+
         df = pd.DataFrame(
             {
                 "int_col": np.array([1, 2], dtype=np.int64),
@@ -1493,8 +1543,7 @@ class TestDataFetcherConvertDataframeToRecords:
                 "bool_col": np.array([True, False], dtype=np.bool_),
             }
         )
-
-        records, columns = fetcher._convert_dataframe_to_records(df)
+        records, columns = convert_dataframe_to_records(df)
 
         assert len(records) == 2
         assert len(columns) == 5
@@ -1512,7 +1561,8 @@ class TestDataFetcherConvertDataframeToRecords:
 
     def test_json_serializable_output(self) -> None:
         """Test that the converted records are JSON serializable."""
-        fetcher = DataFetcher()
+        from fast_nfl_mcp.serialization import convert_dataframe_to_records
+
         df = pd.DataFrame(
             {
                 "int_col": np.array([1, 2], dtype=np.int64),
@@ -1521,8 +1571,7 @@ class TestDataFetcherConvertDataframeToRecords:
                 "date_col": pd.to_datetime(["2024-01-01", pd.NaT]),
             }
         )
-
-        records, _ = fetcher._convert_dataframe_to_records(df)
+        records, _ = convert_dataframe_to_records(df)
 
         # Should not raise - validates JSON serialization
         json_str = json.dumps(records)

@@ -7,6 +7,7 @@ support the data query workflow.
 
 from typing import Any
 
+from fast_nfl_mcp.enums import DatasetStatus
 from fast_nfl_mcp.models import (
     ErrorResponse,
     SuccessResponse,
@@ -30,20 +31,21 @@ def list_datasets_impl(schema_manager: SchemaManager) -> SuccessResponse:
         A SuccessResponse containing dataset information.
     """
     datasets = []
-    for name, (_, description, supports_seasons) in DATASET_DEFINITIONS.items():
+    for name, definition in DATASET_DEFINITIONS.items():
+        # Determine loading status
+        if schema_manager.is_loaded(name):
+            status = DatasetStatus.AVAILABLE
+        elif name in schema_manager.get_failed_datasets():
+            status = DatasetStatus.UNAVAILABLE
+        else:
+            status = DatasetStatus.NOT_LOADED
+
         dataset_info: dict[str, Any] = {
             "name": name,
-            "description": description,
-            "supports_seasons": supports_seasons,
+            "description": definition.description,
+            "supports_seasons": definition.supports_seasons,
+            "status": status,
         }
-
-        # Add loading status if schema manager has been preloaded
-        if schema_manager.is_loaded(name):
-            dataset_info["status"] = "available"
-        elif name in schema_manager.get_failed_datasets():
-            dataset_info["status"] = "unavailable"
-        else:
-            dataset_info["status"] = "not_loaded"
 
         datasets.append(dataset_info)
 

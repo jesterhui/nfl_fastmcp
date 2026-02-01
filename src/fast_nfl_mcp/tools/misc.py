@@ -19,7 +19,8 @@ from fast_nfl_mcp.models import (
     SuccessResponse,
     create_success_response,
 )
-from fast_nfl_mcp.tools.player_stats import normalize_filters, validate_seasons
+from fast_nfl_mcp.tools.validation import normalize_filters, validate_seasons
+from fast_nfl_mcp.utils import add_warnings_to_response
 
 
 def get_snap_counts_impl(
@@ -76,15 +77,7 @@ def get_snap_counts_impl(
 
     # Add any validation warnings to the result
     if warnings and isinstance(result, SuccessResponse):
-        existing_warning = result.warning or ""
-        combined_warning = " ".join(filter(None, [existing_warning, *warnings]))
-        return create_success_response(
-            data=result.data,
-            total_available=result.metadata.total_available,
-            truncated=result.metadata.truncated,
-            columns=result.metadata.columns,
-            warning=combined_warning if combined_warning else None,
-        )
+        return add_warnings_to_response(result, warnings)
 
     return result
 
@@ -143,15 +136,7 @@ def get_injuries_impl(
 
     # Add any validation warnings to the result
     if warnings and isinstance(result, SuccessResponse):
-        existing_warning = result.warning or ""
-        combined_warning = " ".join(filter(None, [existing_warning, *warnings]))
-        return create_success_response(
-            data=result.data,
-            total_available=result.metadata.total_available,
-            truncated=result.metadata.truncated,
-            columns=result.metadata.columns,
-            warning=combined_warning if combined_warning else None,
-        )
+        return add_warnings_to_response(result, warnings)
 
     return result
 
@@ -210,15 +195,7 @@ def get_depth_charts_impl(
 
     # Add any validation warnings to the result
     if warnings and isinstance(result, SuccessResponse):
-        existing_warning = result.warning or ""
-        combined_warning = " ".join(filter(None, [existing_warning, *warnings]))
-        return create_success_response(
-            data=result.data,
-            total_available=result.metadata.total_available,
-            truncated=result.metadata.truncated,
-            columns=result.metadata.columns,
-            warning=combined_warning if combined_warning else None,
-        )
+        return add_warnings_to_response(result, warnings)
 
     return result
 
@@ -277,15 +254,7 @@ def get_combine_data_impl(
 
     # Add any validation warnings to the result
     if warnings and isinstance(result, SuccessResponse):
-        existing_warning = result.warning or ""
-        combined_warning = " ".join(filter(None, [existing_warning, *warnings]))
-        return create_success_response(
-            data=result.data,
-            total_available=result.metadata.total_available,
-            truncated=result.metadata.truncated,
-            columns=result.metadata.columns,
-            warning=combined_warning if combined_warning else None,
-        )
+        return add_warnings_to_response(result, warnings)
 
     return result
 
@@ -348,14 +317,6 @@ def get_qbr_impl(
 
     # Add any validation warnings to the result
     if warnings and isinstance(result, SuccessResponse):
-        existing_warning = result.warning or ""
-        combined_warning = " ".join(filter(None, [existing_warning, *warnings]))
-        return create_success_response(
-            data=result.data,
-            total_available=result.metadata.total_available,
-            truncated=result.metadata.truncated,
-            columns=result.metadata.columns,
-            warning=combined_warning if combined_warning else None,
-        )
+        return add_warnings_to_response(result, warnings)
 
     return result

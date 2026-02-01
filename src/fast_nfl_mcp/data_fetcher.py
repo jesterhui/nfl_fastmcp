@@ -18,23 +18,10 @@ from fast_nfl_mcp.models import (
     create_success_response,
 )
 from fast_nfl_mcp.schema_manager import DATASET_DEFINITIONS
+from fast_nfl_mcp.serialization import convert_dataframe_to_records
+from fast_nfl_mcp.types import DatasetDefinition
 
 logger = logging.getLogger(__name__)
-
-
-def _convert_object_value(val: Any) -> Any:
-    """Convert non-serializable values in object columns to JSON-safe types.
-
-    Handles pd.Timestamp, numpy scalars, and NaN values that may appear
-    in object-dtype columns (common after merges or with mixed-type data).
-    """
-    if pd.isna(val):
-        return None
-    if isinstance(val, pd.Timestamp):
-        return str(val)
-    if hasattr(val, "item"):
-        return val.item()
-    return val
 
 
 class DataFetchError(Exception):
@@ -70,14 +57,14 @@ class DataFetcher:
         else:
             self._max_rows = self.MAX_ROWS
 
-    def _get_dataset_loader(self, dataset: str) -> tuple[Any, str, bool] | None:
+    def _get_dataset_loader(self, dataset: str) -> DatasetDefinition | None:
         """Get the loader function and metadata for a dataset.
 
         Args:
             dataset: The name of the dataset to fetch.
 
         Returns:
-            A tuple of (loader_function, description, supports_seasons)
+            A DatasetDefinition with loader, description, and supports_seasons,
             or None if the dataset is not found.
         """
         return DATASET_DEFINITIONS.get(dataset)
@@ -107,69 +94,6 @@ class DataFetcher:
                 return [seasons]
             return list(seasons)
         return None
-
-    def _convert_dataframe_to_records(
-        self, df: pd.DataFrame
-    ) -> tuple[list[dict[str, Any]], list[str]]:
-        """Convert a DataFrame to a list of dictionaries.
-
-        Handles special cases like NaN values and numpy types to ensure
-        JSON serialization compatibility.
-
-        Args:
-            df: The DataFrame to convert.
-
-        Returns:
-            A tuple of (list of row dictionaries, list of column names).
-        """
-        if df is None or df.empty:
-            return [], []
-
-        # Pre-compute column names once (avoid repeated str() calls in loops)
-        columns: list[str] = [str(col) for col in df.columns]
-
-        # Create a working copy for vectorized transformations
-        result_df = df.copy()
-
-        # Vectorized type conversions per column (much faster than per-cell checks)
-        for col in result_df.columns:
-            dtype = result_df[col].dtype
-
-            # Convert Timestamp columns to strings, handling NaT properly
-            if pd.api.types.is_datetime64_any_dtype(dtype):
-                # Use list comprehension to properly handle NaT as None
-                values = [None if pd.isna(v) else str(v) for v in result_df[col]]
-                result_df[col] = pd.Series(values, index=result_df.index, dtype=object)
-            # Convert numpy integer/float types to Python native (preserving NaN as None)
-            # Must use list comprehension + .item() to ensure native Python types
-            elif pd.api.types.is_integer_dtype(dtype) or pd.api.types.is_float_dtype(
-                dtype
-            ):
-                values = [_convert_object_value(v) for v in result_df[col]]
-                result_df[col] = pd.Series(values, index=result_df.index, dtype=object)
-            # Convert boolean columns - handles nullable BooleanDtype with pd.NA
-            # Must convert to object dtype to preserve None values
-            elif pd.api.types.is_bool_dtype(dtype):
-                values = [_convert_object_value(v) for v in result_df[col]]
-                result_df[col] = pd.Series(values, index=result_df.index, dtype=object)
-            # Handle string and object dtype columns - replace NaN with None
-            # and convert any embedded Timestamps/numpy scalars
-            # Must rebuild Series from list to preserve None (pandas converts None to nan)
-            elif pd.api.types.is_string_dtype(dtype) or pd.api.types.is_object_dtype(
-                dtype
-            ):
-                values = [_convert_object_value(v) for v in result_df[col]]
-                result_df[col] = pd.Series(values, index=result_df.index, dtype=object)
-
-        # Convert to records - now all values should be JSON-serializable
-        records = result_df.to_dict(orient="records")
-
-        # Ensure all keys are strings (handle non-string column names)
-        cleaned_records: list[dict[str, Any]] = [
-            {str(k): v for k, v in record.items()} for record in records
-        ]
-
-        return cleaned_records, columns
 
     def _apply_filters(
         self, df: pd.DataFrame, filters: dict[str, list[Any]]
@@ -241,16 +165,16 @@ class DataFetcher:
                 f"Valid datasets are: {', '.join(sorted(valid_datasets))}"
             )
 
-        loader, description, supports_seasons = definition
-
         # Build parameters for the loader
-        loader_param = self._build_params_for_loader(supports_seasons, params)
+        loader_param = self._build_params_for_loader(
+            definition.supports_seasons, params
+        )
 
         try:
             logger.info(f"Fetching data for {dataset} with params: {params}")
 
             # Call the loader function
-            df = loader(loader_param)
+            df = definition.loader(loader_param)
 
             # Handle None or empty DataFrame
             if df is None or df.empty:
@@ -325,7 +249,7 @@ class DataFetcher:
                 )
 
             # Convert to records
-            records, columns = self._convert_dataframe_to_records(df)
+            records, columns = convert_dataframe_to_records(df)
 
             # Build warning message
             warnings: list[str] = []
@@ -412,12 +336,13 @@ class DataFetcher:
         if definition is None:
             return None
 
-        _, description, supports_seasons = definition
         # For seasonal datasets, the default season is always the current season
-        default_season = get_current_season_year() if supports_seasons else None
+        default_season = (
+            get_current_season_year() if definition.supports_seasons else None
+        )
         return {
             "name": dataset,
-            "description": description,
-            "supports_seasons": supports_seasons,
+            "description": definition.description,
+            "supports_seasons": definition.supports_seasons,
             "default_season": default_season,
         }

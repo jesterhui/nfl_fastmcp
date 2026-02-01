@@ -49,6 +49,19 @@ BDB_AVAILABLE_WEEKS: tuple[int, ...] = tuple(range(1, 19))  # Weeks 1-18
 DEFAULT_MAX_ROWS_TRACKING: int = 50
 MAX_ROWS_TRACKING: int = 100
 
+# Lookup player tool settings (from tools/reference.py)
+LOOKUP_PLAYER_DEFAULT_LIMIT: int = 10
+LOOKUP_PLAYER_MAX_LIMIT: int = 100
+
+# Columns returned by lookup_player
+LOOKUP_PLAYER_COLUMNS: list[str] = [
+    "gsis_id",
+    "name",
+    "team",
+    "position",
+    "merge_name",
+]
+
 
 def get_current_season_year() -> int:
     """Calculate the current NFL season year based on today's date.

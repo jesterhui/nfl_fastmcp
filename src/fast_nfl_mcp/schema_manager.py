@@ -6,7 +6,6 @@ column information, data types, sample values, and available seasons.
 """
 
 import logging
-from collections.abc import Callable
 from concurrent.futures import Future, ThreadPoolExecutor, as_completed
 from typing import Any
 
@@ -14,150 +13,117 @@ import nfl_data_py as nfl
 import pandas as pd
 
 from fast_nfl_mcp.constants import MIN_SEASON, get_current_season_year
+from fast_nfl_mcp.enums import DatasetName, DatasetStatus
 from fast_nfl_mcp.models import ColumnSchema, DatasetSchema
+from fast_nfl_mcp.serialization import extract_sample_values
+from fast_nfl_mcp.types import DatasetDefinition
 
 logger = logging.getLogger(__name__)
 
 # Dataset definitions with their loader functions and metadata
-# Each entry contains: (loader_function, description, supports_seasons)
-# For seasonal datasets, get_current_season_year() is called at runtime to get the default
-DATASET_DEFINITIONS: dict[str, tuple[Callable[..., pd.DataFrame], str, bool]] = {
-    "play_by_play": (
-        lambda seasons: nfl.import_pbp_data(seasons),
-        "Play-by-play data with EPA, WPA, and detailed play outcomes",
-        True,
+# Using DatasetDefinition NamedTuple for explicit field access
+DATASET_DEFINITIONS: dict[str, DatasetDefinition] = {
+    DatasetName.PLAY_BY_PLAY: DatasetDefinition(
+        loader=lambda seasons: nfl.import_pbp_data(seasons),
+        description="Play-by-play data with EPA, WPA, and detailed play outcomes",
+        supports_seasons=True,
     ),
-    "weekly_stats": (
-        lambda seasons: nfl.import_weekly_data(seasons),
-        "Weekly aggregated player statistics",
-        True,
+    DatasetName.WEEKLY_STATS: DatasetDefinition(
+        loader=lambda seasons: nfl.import_weekly_data(seasons),
+        description="Weekly aggregated player statistics",
+        supports_seasons=True,
     ),
-    "seasonal_stats": (
-        lambda seasons: nfl.import_seasonal_data(seasons),
-        "Season-level player statistics",
-        True,
+    DatasetName.SEASONAL_STATS: DatasetDefinition(
+        loader=lambda seasons: nfl.import_seasonal_data(seasons),
+        description="Season-level player statistics",
+        supports_seasons=True,
     ),
-    "rosters": (
-        lambda seasons: nfl.import_weekly_rosters(seasons),
-        "Team rosters with player information",
-        True,
+    DatasetName.ROSTERS: DatasetDefinition(
+        loader=lambda seasons: nfl.import_weekly_rosters(seasons),
+        description="Team rosters with player information",
+        supports_seasons=True,
     ),
-    "player_ids": (
-        lambda _: nfl.import_ids(),
-        "Cross-platform player ID mappings",
-        False,
+    DatasetName.PLAYER_IDS: DatasetDefinition(
+        loader=lambda _: nfl.import_ids(),
+        description="Cross-platform player ID mappings",
+        supports_seasons=False,
     ),
-    "draft_picks": (
-        lambda seasons: nfl.import_draft_picks(seasons),
-        "Historical NFL draft data",
-        True,
+    DatasetName.DRAFT_PICKS: DatasetDefinition(
+        loader=lambda seasons: nfl.import_draft_picks(seasons),
+        description="Historical NFL draft data",
+        supports_seasons=True,
     ),
-    "schedules": (
-        lambda seasons: nfl.import_schedules(seasons),
-        "Game schedules and results",
-        True,
+    DatasetName.SCHEDULES: DatasetDefinition(
+        loader=lambda seasons: nfl.import_schedules(seasons),
+        description="Game schedules and results",
+        supports_seasons=True,
     ),
-    "team_descriptions": (
-        lambda _: nfl.import_team_desc(),
-        "Team metadata and information",
-        False,
+    DatasetName.TEAM_DESCRIPTIONS: DatasetDefinition(
+        loader=lambda _: nfl.import_team_desc(),
+        description="Team metadata and information",
+        supports_seasons=False,
     ),
-    "combine_data": (
-        lambda seasons: nfl.import_combine_data(seasons),
-        "NFL combine results and measurements",
-        True,
+    DatasetName.COMBINE_DATA: DatasetDefinition(
+        loader=lambda seasons: nfl.import_combine_data(seasons),
+        description="NFL combine results and measurements",
+        supports_seasons=True,
     ),
-    "scoring_lines": (
-        lambda seasons: nfl.import_sc_lines(seasons),
-        "Betting scoring lines",
-        True,
+    DatasetName.SCORING_LINES: DatasetDefinition(
+        loader=lambda seasons: nfl.import_sc_lines(seasons),
+        description="Betting scoring lines",
+        supports_seasons=True,
     ),
-    "win_totals": (
-        lambda seasons: nfl.import_win_totals(seasons),
-        "Season win total betting lines",
-        True,
+    DatasetName.WIN_TOTALS: DatasetDefinition(
+        loader=lambda seasons: nfl.import_win_totals(seasons),
+        description="Season win total betting lines",
+        supports_seasons=True,
     ),
-    "ngs_passing": (
-        lambda seasons: nfl.import_ngs_data("passing", seasons),
-        "Next Gen Stats - passing metrics",
-        True,
+    DatasetName.NGS_PASSING: DatasetDefinition(
+        loader=lambda seasons: nfl.import_ngs_data("passing", seasons),
+        description="Next Gen Stats - passing metrics",
+        supports_seasons=True,
     ),
-    "ngs_rushing": (
-        lambda seasons: nfl.import_ngs_data("rushing", seasons),
-        "Next Gen Stats - rushing metrics",
-        True,
+    DatasetName.NGS_RUSHING: DatasetDefinition(
+        loader=lambda seasons: nfl.import_ngs_data("rushing", seasons),
+        description="Next Gen Stats - rushing metrics",
+        supports_seasons=True,
     ),
-    "ngs_receiving": (
-        lambda seasons: nfl.import_ngs_data("receiving", seasons),
-        "Next Gen Stats - receiving metrics",
-        True,
+    DatasetName.NGS_RECEIVING: DatasetDefinition(
+        loader=lambda seasons: nfl.import_ngs_data("receiving", seasons),
+        description="Next Gen Stats - receiving metrics",
+        supports_seasons=True,
     ),
-    "snap_counts": (
-        lambda seasons: nfl.import_snap_counts(seasons),
-        "Player snap participation data",
-        True,
+    DatasetName.SNAP_COUNTS: DatasetDefinition(
+        loader=lambda seasons: nfl.import_snap_counts(seasons),
+        description="Player snap participation data",
+        supports_seasons=True,
     ),
-    "injuries": (
-        lambda seasons: nfl.import_injuries(seasons),
-        "Injury reports and status",
-        True,
+    DatasetName.INJURIES: DatasetDefinition(
+        loader=lambda seasons: nfl.import_injuries(seasons),
+        description="Injury reports and status",
+        supports_seasons=True,
     ),
-    "depth_charts": (
-        lambda seasons: nfl.import_depth_charts(seasons),
-        "Team depth charts",
-        True,
+    DatasetName.DEPTH_CHARTS: DatasetDefinition(
+        loader=lambda seasons: nfl.import_depth_charts(seasons),
+        description="Team depth charts",
+        supports_seasons=True,
     ),
-    "contracts": (
-        lambda _: nfl.import_contracts(),
-        "Player contract data",
-        False,
+    DatasetName.CONTRACTS: DatasetDefinition(
+        loader=lambda _: nfl.import_contracts(),
+        description="Player contract data",
+        supports_seasons=False,
     ),
-    "officials": (
-        lambda _: nfl.import_officials(),
-        "Game officials data",
-        False,
+    DatasetName.OFFICIALS: DatasetDefinition(
+        loader=lambda _: nfl.import_officials(),
+        description="Game officials data",
+        supports_seasons=False,
     ),
-    "qbr": (
-        lambda seasons: nfl.import_qbr(seasons),
-        "ESPN QBR ratings",
-        True,
+    DatasetName.QBR: DatasetDefinition(
+        loader=lambda seasons: nfl.import_qbr(seasons),
+        description="ESPN QBR ratings",
+        supports_seasons=True,
     ),
 }
-
-
-def _extract_sample_values(series: pd.Series, max_samples: int = 2) -> list[Any]:
-    """Extract sample values from a pandas Series.
-
-    Args:
-        series: The pandas Series to extract samples from.
-        max_samples: Maximum number of samples to extract (default 2).
-
-    Returns:
-        A list of sample values, with NaN values excluded.
-    """
-    # Drop NaN values and get unique values for better representation
-    non_null = series.dropna()
-    if len(non_null) == 0:
-        return []
-
-    # Get unique values first for variety
-    unique_vals = non_null.unique()
-    samples = unique_vals[:max_samples].tolist()
-
-    # Convert numpy types to Python native types for JSON serialization
-    result = []
-    for val in samples:
-        if pd.isna(val):
-            continue
-        elif hasattr(val, "item"):
-            # numpy scalar types
-            result.append(val.item())
-        elif isinstance(val, pd.Timestamp):
-            result.append(str(val))
-        else:
-            result.append(val)
-
-    return result[:max_samples]
 
 
 def _extract_column_schema(df: pd.DataFrame, column: str) -> ColumnSchema:
@@ -174,7 +140,7 @@ def _extract_column_schema(df: pd.DataFrame, column: str) -> ColumnSchema:
     return ColumnSchema(
         name=column,
         dtype=str(series.dtype),
-        sample_values=_extract_sample_values(series),
+        sample_values=extract_sample_values(series),
         null_count=int(series.isna().sum()),
         unique_count=int(series.nunique()),
     )
@@ -210,29 +176,29 @@ class SchemaManager:
             logger.warning(f"Unknown dataset: {dataset_name}")
             return None
 
-        loader, description, supports_seasons = DATASET_DEFINITIONS[dataset_name]
+        definition = DATASET_DEFINITIONS[dataset_name]
 
         try:
             logger.info(f"Loading schema for {dataset_name}...")
 
             # Load a small sample of data to extract schema
             # Get current season for seasonal datasets
-            if supports_seasons:
+            if definition.supports_seasons:
                 current_season = get_current_season_year()
-                df = loader([current_season])
+                df = definition.loader([current_season])
             else:
                 current_season = None
-                df = loader(None)
+                df = definition.loader(None)
 
             # Handle case where loader returns None or empty DataFrame
             if df is None or df.empty:
                 logger.warning(f"Dataset {dataset_name} returned empty DataFrame")
                 empty_seasons: list[int] | None = None
-                if supports_seasons and current_season is not None:
+                if definition.supports_seasons and current_season is not None:
                     empty_seasons = [current_season]
                 return DatasetSchema(
                     name=dataset_name,
-                    description=description,
+                    description=definition.description,
                     columns=[],
                     row_count=0,
                     available_seasons=empty_seasons,
@@ -243,13 +209,13 @@ class SchemaManager:
 
             # Determine available seasons if applicable
             available_seasons: list[int] | None = None
-            if supports_seasons and current_season is not None:
+            if definition.supports_seasons and current_season is not None:
                 # Dynamic range from MIN_SEASON to current season
                 available_seasons = list(range(MIN_SEASON, current_season + 1))
 
             schema = DatasetSchema(
                 name=dataset_name,
-                description=description,
+                description=definition.description,
                 columns=columns,
                 row_count=len(df),
                 available_seasons=available_seasons,
@@ -386,18 +352,19 @@ class SchemaManager:
             and availability status.
         """
         datasets = []
-        for name, (_, description, supports_seasons) in DATASET_DEFINITIONS.items():
-            status = "loaded"
+        for name, definition in DATASET_DEFINITIONS.items():
             if name in self._failed_datasets:
-                status = "failed"
+                status = DatasetStatus.UNAVAILABLE
             elif name not in self._schemas:
-                status = "not_loaded"
+                status = DatasetStatus.NOT_LOADED
+            else:
+                status = DatasetStatus.AVAILABLE
 
             datasets.append(
                 {
                     "name": name,
-                    "description": description,
-                    "supports_seasons": supports_seasons,
+                    "description": definition.description,
+                    "supports_seasons": definition.supports_seasons,
                     "status": status,
                 }
             )

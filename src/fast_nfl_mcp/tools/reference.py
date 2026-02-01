@@ -10,7 +10,13 @@ from typing import Any
 
 import pandas as pd
 
-from fast_nfl_mcp.data_fetcher import DataFetcher, _convert_object_value
+from fast_nfl_mcp.constants import (
+    LOOKUP_PLAYER_COLUMNS,
+    LOOKUP_PLAYER_DEFAULT_LIMIT,
+    LOOKUP_PLAYER_MAX_LIMIT,
+)
+from fast_nfl_mcp.data_fetcher import DataFetcher
+from fast_nfl_mcp.enums import DatasetName
 from fast_nfl_mcp.models import (
     ErrorResponse,
     SuccessResponse,
@@ -18,6 +24,7 @@ from fast_nfl_mcp.models import (
     create_success_response,
 )
 from fast_nfl_mcp.schema_manager import DATASET_DEFINITIONS
+from fast_nfl_mcp.serialization import convert_value
 
 logger = logging.getLogger(__name__)
 
@@ -122,14 +129,6 @@ def get_contracts_impl(
     )
 
 
-# Default and maximum limits for lookup_player
-LOOKUP_PLAYER_DEFAULT_LIMIT = 10
-LOOKUP_PLAYER_MAX_LIMIT = 100
-
-# Columns to return from lookup_player
-LOOKUP_PLAYER_COLUMNS = ["gsis_id", "name", "team", "position", "merge_name"]
-
-
 def lookup_player_impl(
     name: str,
     limit: int | None = None,
@@ -174,19 +173,17 @@ def lookup_player_impl(
         effective_limit = min(max(1, limit), LOOKUP_PLAYER_MAX_LIMIT)
 
     # Get the player_ids loader from DATASET_DEFINITIONS
-    definition = DATASET_DEFINITIONS.get("player_ids")
+    definition = DATASET_DEFINITIONS.get(DatasetName.PLAYER_IDS)
     if definition is None:
         return create_error_response(
             error="player_ids dataset not found in configuration."
         )
 
-    loader, _, _ = definition
-
     try:
         logger.info(f"Looking up player with name: {name}")
 
         # Load the player_ids dataset
-        df = loader(None)
+        df = definition.loader(None)
 
         if df is None or df.empty:
             return create_success_response(
@@ -259,12 +256,12 @@ def lookup_player_impl(
             dtype = result_df[col].dtype
             # Convert datetime columns to strings
             if pd.api.types.is_datetime64_any_dtype(dtype):
-                result_df[col] = result_df[col].astype(str)
-                result_df[col] = result_df[col].replace("NaT", None)
+                values = [None if pd.isna(v) else str(v) for v in result_df[col]]
+                result_df[col] = pd.Series(values, index=result_df.index, dtype=object)
             else:
-                # Use _convert_object_value to convert numpy scalars to native Python
+                # Use convert_value to convert numpy scalars to native Python
                 # and NaN/NA to None (must rebuild Series to preserve None values)
-                values = [_convert_object_value(v) for v in result_df[col]]
+                values = [convert_value(v) for v in result_df[col]]
                 result_df[col] = pd.Series(values, index=result_df.index, dtype=object)
 
         # Use to_dict for efficient conversion

@@ -18,6 +18,7 @@ from fast_nfl_mcp.tools.validation import (
     validate_seasons,
     validate_weeks,
 )
+from fast_nfl_mcp.utils import add_warnings_to_response
 
 
 def get_play_by_play_impl(
@@ -92,15 +93,6 @@ def get_play_by_play_impl(
 
     # Add any validation warnings to the result
     if warnings and isinstance(result, SuccessResponse):
-        existing_warning = result.warning or ""
-        combined_warning = " ".join(filter(None, [existing_warning, *warnings]))
-        # Create new response with combined warning
-        return create_success_response(
-            data=result.data,
-            total_available=result.metadata.total_available,
-            truncated=result.metadata.truncated,
-            columns=result.metadata.columns,
-            warning=combined_warning if combined_warning else None,
-        )
+        return add_warnings_to_response(result, warnings)
 
     return result

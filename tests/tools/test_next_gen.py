@@ -16,9 +16,8 @@ from fast_nfl_mcp.tools.next_gen import (
     get_ngs_passing_impl,
     get_ngs_receiving_impl,
     get_ngs_rushing_impl,
-    normalize_filters,
-    validate_seasons,
 )
+from fast_nfl_mcp.tools.validation import normalize_filters, validate_seasons
 
 
 class TestValidateSeasons:
