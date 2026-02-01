@@ -10,7 +10,7 @@ from typing import Any
 
 import pandas as pd
 
-from fast_nfl_mcp.data_fetcher import DataFetcher
+from fast_nfl_mcp.data_fetcher import DataFetcher, _convert_object_value
 from fast_nfl_mcp.models import (
     ErrorResponse,
     SuccessResponse,
@@ -253,23 +253,19 @@ def lookup_player_impl(
         if truncated:
             result_df = result_df.head(effective_limit)
 
-        # Convert to records using vectorized operations (much faster than iterrows)
-        # Convert numpy types to Python native types by converting to object dtype
+        # Convert to records using list comprehension to ensure Python native types
+        # (astype(object) leaves numpy scalars intact, breaking JSON serialization)
         for col in available_cols:
             dtype = result_df[col].dtype
             # Convert datetime columns to strings
             if pd.api.types.is_datetime64_any_dtype(dtype):
                 result_df[col] = result_df[col].astype(str)
                 result_df[col] = result_df[col].replace("NaT", None)
-            elif (
-                pd.api.types.is_integer_dtype(dtype)
-                or pd.api.types.is_float_dtype(dtype)
-                or pd.api.types.is_string_dtype(dtype)
-                or dtype == object
-            ):
-                mask = result_df[col].isna()
-                result_df[col] = result_df[col].astype(object)
-                result_df.loc[mask, col] = None
+            else:
+                # Use _convert_object_value to convert numpy scalars to native Python
+                # and NaN/NA to None (must rebuild Series to preserve None values)
+                values = [_convert_object_value(v) for v in result_df[col]]
+                result_df[col] = pd.Series(values, index=result_df.index, dtype=object)
 
         # Use to_dict for efficient conversion
         records: list[dict[str, Any]] = [
