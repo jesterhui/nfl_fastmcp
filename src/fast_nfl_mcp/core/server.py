@@ -14,7 +14,7 @@ from typing import Any
 
 from fastmcp import FastMCP
 
-from fast_nfl_mcp.schema_manager import SchemaManager
+from fast_nfl_mcp.data.schema import SchemaManager
 from fast_nfl_mcp.tools.registry import register_tools
 
 

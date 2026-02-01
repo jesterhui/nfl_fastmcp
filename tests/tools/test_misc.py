@@ -9,21 +9,21 @@ from unittest.mock import patch
 import pandas as pd
 import pytest
 
-from fast_nfl_mcp.constants import (
-    DEFAULT_MAX_ROWS,
-    MAX_SEASONS_COMBINE,
-    MAX_SEASONS_DEPTH_CHARTS,
-    MAX_SEASONS_INJURIES,
-    MAX_SEASONS_QBR,
-    MAX_SEASONS_SNAP_COUNTS,
-)
-from fast_nfl_mcp.models import ErrorResponse, SuccessResponse
+from fast_nfl_mcp.core.models import ErrorResponse, SuccessResponse
 from fast_nfl_mcp.tools.misc import (
     get_combine_data_impl,
     get_depth_charts_impl,
     get_injuries_impl,
     get_qbr_impl,
     get_snap_counts_impl,
+)
+from fast_nfl_mcp.utils.constants import (
+    DEFAULT_MAX_ROWS,
+    MAX_SEASONS_COMBINE,
+    MAX_SEASONS_DEPTH_CHARTS,
+    MAX_SEASONS_INJURIES,
+    MAX_SEASONS_QBR,
+    MAX_SEASONS_SNAP_COUNTS,
 )
 
 
@@ -63,7 +63,7 @@ class TestGetSnapCounts:
 
     def test_successful_fetch(self, sample_snap_counts_df: pd.DataFrame) -> None:
         """Test successful data fetch returns SuccessResponse."""
-        with patch("fast_nfl_mcp.schema_manager.nfl.import_snap_counts") as mock_import:
+        with patch("fast_nfl_mcp.data.schema.nfl.import_snap_counts") as mock_import:
             mock_import.return_value = sample_snap_counts_df
 
             result = get_snap_counts_impl([2024], ["player", "team", "offense_pct"])
@@ -74,7 +74,7 @@ class TestGetSnapCounts:
 
     def test_season_limit_enforced(self, sample_snap_counts_df: pd.DataFrame) -> None:
         """Test that season limit of 5 is enforced."""
-        with patch("fast_nfl_mcp.schema_manager.nfl.import_snap_counts") as mock_import:
+        with patch("fast_nfl_mcp.data.schema.nfl.import_snap_counts") as mock_import:
             mock_import.return_value = sample_snap_counts_df
 
             # Request more seasons than allowed
@@ -90,7 +90,7 @@ class TestGetSnapCounts:
 
     def test_truncation_at_max_rows(self, large_snap_counts_df: pd.DataFrame) -> None:
         """Test that results are truncated at DEFAULT_MAX_ROWS."""
-        with patch("fast_nfl_mcp.schema_manager.nfl.import_snap_counts") as mock_import:
+        with patch("fast_nfl_mcp.data.schema.nfl.import_snap_counts") as mock_import:
             mock_import.return_value = large_snap_counts_df
 
             result = get_snap_counts_impl([2024], ["player", "team"])
@@ -102,7 +102,7 @@ class TestGetSnapCounts:
 
     def test_pagination_with_offset(self, large_snap_counts_df: pd.DataFrame) -> None:
         """Test that offset skips rows for pagination."""
-        with patch("fast_nfl_mcp.schema_manager.nfl.import_snap_counts") as mock_import:
+        with patch("fast_nfl_mcp.data.schema.nfl.import_snap_counts") as mock_import:
             mock_import.return_value = large_snap_counts_df
 
             result = get_snap_counts_impl([2024], ["player", "team"], offset=10)
@@ -112,7 +112,7 @@ class TestGetSnapCounts:
 
     def test_pagination_with_limit(self, large_snap_counts_df: pd.DataFrame) -> None:
         """Test that limit controls number of rows returned."""
-        with patch("fast_nfl_mcp.schema_manager.nfl.import_snap_counts") as mock_import:
+        with patch("fast_nfl_mcp.data.schema.nfl.import_snap_counts") as mock_import:
             mock_import.return_value = large_snap_counts_df
 
             result = get_snap_counts_impl([2024], ["player", "team"], limit=5)
@@ -122,7 +122,7 @@ class TestGetSnapCounts:
 
     def test_filters_applied(self, sample_snap_counts_df: pd.DataFrame) -> None:
         """Test that filters are applied correctly."""
-        with patch("fast_nfl_mcp.schema_manager.nfl.import_snap_counts") as mock_import:
+        with patch("fast_nfl_mcp.data.schema.nfl.import_snap_counts") as mock_import:
             mock_import.return_value = sample_snap_counts_df
 
             result = get_snap_counts_impl(
@@ -143,7 +143,7 @@ class TestGetSnapCounts:
 
     def test_network_error_handling(self) -> None:
         """Test that network errors return ErrorResponse."""
-        with patch("fast_nfl_mcp.schema_manager.nfl.import_snap_counts") as mock_import:
+        with patch("fast_nfl_mcp.data.schema.nfl.import_snap_counts") as mock_import:
             mock_import.side_effect = Exception("Network timeout")
 
             result = get_snap_counts_impl([2024], ["player", "team"])
@@ -183,7 +183,7 @@ class TestGetInjuries:
 
     def test_successful_fetch(self, sample_injuries_df: pd.DataFrame) -> None:
         """Test successful data fetch returns SuccessResponse."""
-        with patch("fast_nfl_mcp.schema_manager.nfl.import_injuries") as mock_import:
+        with patch("fast_nfl_mcp.data.schema.nfl.import_injuries") as mock_import:
             mock_import.return_value = sample_injuries_df
 
             result = get_injuries_impl([2024], ["player", "report_status"])
@@ -194,7 +194,7 @@ class TestGetInjuries:
 
     def test_season_limit_enforced(self, sample_injuries_df: pd.DataFrame) -> None:
         """Test that season limit of 5 is enforced."""
-        with patch("fast_nfl_mcp.schema_manager.nfl.import_injuries") as mock_import:
+        with patch("fast_nfl_mcp.data.schema.nfl.import_injuries") as mock_import:
             mock_import.return_value = sample_injuries_df
 
             seasons = [2020, 2021, 2022, 2023, 2024, 2025]
@@ -207,7 +207,7 @@ class TestGetInjuries:
 
     def test_truncation_at_max_rows(self, large_injuries_df: pd.DataFrame) -> None:
         """Test that results are truncated at DEFAULT_MAX_ROWS."""
-        with patch("fast_nfl_mcp.schema_manager.nfl.import_injuries") as mock_import:
+        with patch("fast_nfl_mcp.data.schema.nfl.import_injuries") as mock_import:
             mock_import.return_value = large_injuries_df
 
             result = get_injuries_impl([2024], ["player", "team"])
@@ -218,7 +218,7 @@ class TestGetInjuries:
 
     def test_filters_applied(self, sample_injuries_df: pd.DataFrame) -> None:
         """Test that filters are applied correctly."""
-        with patch("fast_nfl_mcp.schema_manager.nfl.import_injuries") as mock_import:
+        with patch("fast_nfl_mcp.data.schema.nfl.import_injuries") as mock_import:
             mock_import.return_value = sample_injuries_df
 
             result = get_injuries_impl(
@@ -231,7 +231,7 @@ class TestGetInjuries:
 
     def test_network_error_handling(self) -> None:
         """Test that network errors return ErrorResponse."""
-        with patch("fast_nfl_mcp.schema_manager.nfl.import_injuries") as mock_import:
+        with patch("fast_nfl_mcp.data.schema.nfl.import_injuries") as mock_import:
             mock_import.side_effect = Exception("Connection refused")
 
             result = get_injuries_impl([2024], ["player", "team"])
@@ -269,9 +269,7 @@ class TestGetDepthCharts:
 
     def test_successful_fetch(self, sample_depth_charts_df: pd.DataFrame) -> None:
         """Test successful data fetch returns SuccessResponse."""
-        with patch(
-            "fast_nfl_mcp.schema_manager.nfl.import_depth_charts"
-        ) as mock_import:
+        with patch("fast_nfl_mcp.data.schema.nfl.import_depth_charts") as mock_import:
             mock_import.return_value = sample_depth_charts_df
 
             result = get_depth_charts_impl([2024], ["full_name", "position"])
@@ -282,9 +280,7 @@ class TestGetDepthCharts:
 
     def test_season_limit_enforced(self, sample_depth_charts_df: pd.DataFrame) -> None:
         """Test that season limit of 5 is enforced."""
-        with patch(
-            "fast_nfl_mcp.schema_manager.nfl.import_depth_charts"
-        ) as mock_import:
+        with patch("fast_nfl_mcp.data.schema.nfl.import_depth_charts") as mock_import:
             mock_import.return_value = sample_depth_charts_df
 
             seasons = [2020, 2021, 2022, 2023, 2024, 2025]
@@ -297,9 +293,7 @@ class TestGetDepthCharts:
 
     def test_truncation_at_max_rows(self, large_depth_charts_df: pd.DataFrame) -> None:
         """Test that results are truncated at DEFAULT_MAX_ROWS."""
-        with patch(
-            "fast_nfl_mcp.schema_manager.nfl.import_depth_charts"
-        ) as mock_import:
+        with patch("fast_nfl_mcp.data.schema.nfl.import_depth_charts") as mock_import:
             mock_import.return_value = large_depth_charts_df
 
             result = get_depth_charts_impl([2024], ["full_name", "position"])
@@ -310,9 +304,7 @@ class TestGetDepthCharts:
 
     def test_filters_applied(self, sample_depth_charts_df: pd.DataFrame) -> None:
         """Test that filters are applied correctly."""
-        with patch(
-            "fast_nfl_mcp.schema_manager.nfl.import_depth_charts"
-        ) as mock_import:
+        with patch("fast_nfl_mcp.data.schema.nfl.import_depth_charts") as mock_import:
             mock_import.return_value = sample_depth_charts_df
 
             result = get_depth_charts_impl(
@@ -325,9 +317,7 @@ class TestGetDepthCharts:
 
     def test_network_error_handling(self) -> None:
         """Test that network errors return ErrorResponse."""
-        with patch(
-            "fast_nfl_mcp.schema_manager.nfl.import_depth_charts"
-        ) as mock_import:
+        with patch("fast_nfl_mcp.data.schema.nfl.import_depth_charts") as mock_import:
             mock_import.side_effect = Exception("Network error")
 
             result = get_depth_charts_impl([2024], ["full_name", "position"])
@@ -372,9 +362,7 @@ class TestGetCombineData:
 
     def test_successful_fetch(self, sample_combine_df: pd.DataFrame) -> None:
         """Test successful data fetch returns SuccessResponse."""
-        with patch(
-            "fast_nfl_mcp.schema_manager.nfl.import_combine_data"
-        ) as mock_import:
+        with patch("fast_nfl_mcp.data.schema.nfl.import_combine_data") as mock_import:
             mock_import.return_value = sample_combine_df
 
             result = get_combine_data_impl([2024], ["player_name", "pos", "forty"])
@@ -385,9 +373,7 @@ class TestGetCombineData:
 
     def test_season_limit_enforced(self, sample_combine_df: pd.DataFrame) -> None:
         """Test that season limit of 10 is enforced."""
-        with patch(
-            "fast_nfl_mcp.schema_manager.nfl.import_combine_data"
-        ) as mock_import:
+        with patch("fast_nfl_mcp.data.schema.nfl.import_combine_data") as mock_import:
             mock_import.return_value = sample_combine_df
 
             seasons = list(range(2015, 2027))  # 12 seasons
@@ -400,9 +386,7 @@ class TestGetCombineData:
 
     def test_truncation_at_max_rows(self, large_combine_df: pd.DataFrame) -> None:
         """Test that results are truncated at DEFAULT_MAX_ROWS."""
-        with patch(
-            "fast_nfl_mcp.schema_manager.nfl.import_combine_data"
-        ) as mock_import:
+        with patch("fast_nfl_mcp.data.schema.nfl.import_combine_data") as mock_import:
             mock_import.return_value = large_combine_df
 
             result = get_combine_data_impl([2024], ["player_name", "pos"])
@@ -413,9 +397,7 @@ class TestGetCombineData:
 
     def test_filters_applied(self, sample_combine_df: pd.DataFrame) -> None:
         """Test that filters are applied correctly."""
-        with patch(
-            "fast_nfl_mcp.schema_manager.nfl.import_combine_data"
-        ) as mock_import:
+        with patch("fast_nfl_mcp.data.schema.nfl.import_combine_data") as mock_import:
             mock_import.return_value = sample_combine_df
 
             result = get_combine_data_impl(
@@ -430,9 +412,7 @@ class TestGetCombineData:
         self, large_combine_df: pd.DataFrame
     ) -> None:
         """Test pagination with both offset and limit."""
-        with patch(
-            "fast_nfl_mcp.schema_manager.nfl.import_combine_data"
-        ) as mock_import:
+        with patch("fast_nfl_mcp.data.schema.nfl.import_combine_data") as mock_import:
             mock_import.return_value = large_combine_df
 
             result = get_combine_data_impl(
@@ -445,9 +425,7 @@ class TestGetCombineData:
 
     def test_network_error_handling(self) -> None:
         """Test that network errors return ErrorResponse."""
-        with patch(
-            "fast_nfl_mcp.schema_manager.nfl.import_combine_data"
-        ) as mock_import:
+        with patch("fast_nfl_mcp.data.schema.nfl.import_combine_data") as mock_import:
             mock_import.side_effect = Exception("Timeout error")
 
             result = get_combine_data_impl([2024], ["player_name", "pos"])
@@ -486,7 +464,7 @@ class TestGetQbr:
 
     def test_successful_fetch(self, sample_qbr_df: pd.DataFrame) -> None:
         """Test successful data fetch returns SuccessResponse."""
-        with patch("fast_nfl_mcp.schema_manager.nfl.import_qbr") as mock_import:
+        with patch("fast_nfl_mcp.data.schema.nfl.import_qbr") as mock_import:
             mock_import.return_value = sample_qbr_df
 
             result = get_qbr_impl([2024], ["player_name", "team", "qbr_total"])
@@ -497,7 +475,7 @@ class TestGetQbr:
 
     def test_season_limit_enforced(self, sample_qbr_df: pd.DataFrame) -> None:
         """Test that season limit of 10 is enforced."""
-        with patch("fast_nfl_mcp.schema_manager.nfl.import_qbr") as mock_import:
+        with patch("fast_nfl_mcp.data.schema.nfl.import_qbr") as mock_import:
             mock_import.return_value = sample_qbr_df
 
             seasons = list(range(2015, 2027))  # 12 seasons
@@ -510,7 +488,7 @@ class TestGetQbr:
 
     def test_truncation_at_max_rows(self, large_qbr_df: pd.DataFrame) -> None:
         """Test that results are truncated at DEFAULT_MAX_ROWS."""
-        with patch("fast_nfl_mcp.schema_manager.nfl.import_qbr") as mock_import:
+        with patch("fast_nfl_mcp.data.schema.nfl.import_qbr") as mock_import:
             mock_import.return_value = large_qbr_df
 
             result = get_qbr_impl([2024], ["player_name", "team"])
@@ -521,7 +499,7 @@ class TestGetQbr:
 
     def test_filters_applied(self, sample_qbr_df: pd.DataFrame) -> None:
         """Test that filters are applied correctly."""
-        with patch("fast_nfl_mcp.schema_manager.nfl.import_qbr") as mock_import:
+        with patch("fast_nfl_mcp.data.schema.nfl.import_qbr") as mock_import:
             mock_import.return_value = sample_qbr_df
 
             result = get_qbr_impl(
@@ -534,7 +512,7 @@ class TestGetQbr:
 
     def test_pagination_with_offset(self, large_qbr_df: pd.DataFrame) -> None:
         """Test that offset skips rows for pagination."""
-        with patch("fast_nfl_mcp.schema_manager.nfl.import_qbr") as mock_import:
+        with patch("fast_nfl_mcp.data.schema.nfl.import_qbr") as mock_import:
             mock_import.return_value = large_qbr_df
 
             result = get_qbr_impl([2024], ["player_name", "team"], offset=10)
@@ -544,7 +522,7 @@ class TestGetQbr:
 
     def test_pagination_with_limit(self, large_qbr_df: pd.DataFrame) -> None:
         """Test that limit controls number of rows returned."""
-        with patch("fast_nfl_mcp.schema_manager.nfl.import_qbr") as mock_import:
+        with patch("fast_nfl_mcp.data.schema.nfl.import_qbr") as mock_import:
             mock_import.return_value = large_qbr_df
 
             result = get_qbr_impl([2024], ["player_name", "team"], limit=5)
@@ -554,7 +532,7 @@ class TestGetQbr:
 
     def test_network_error_handling(self) -> None:
         """Test that network errors return ErrorResponse."""
-        with patch("fast_nfl_mcp.schema_manager.nfl.import_qbr") as mock_import:
+        with patch("fast_nfl_mcp.data.schema.nfl.import_qbr") as mock_import:
             mock_import.side_effect = Exception("Network timeout")
 
             result = get_qbr_impl([2024], ["player_name", "team"])
@@ -564,7 +542,7 @@ class TestGetQbr:
 
     def test_columns_in_metadata(self, sample_qbr_df: pd.DataFrame) -> None:
         """Test that column names are included in metadata."""
-        with patch("fast_nfl_mcp.schema_manager.nfl.import_qbr") as mock_import:
+        with patch("fast_nfl_mcp.data.schema.nfl.import_qbr") as mock_import:
             mock_import.return_value = sample_qbr_df
 
             result = get_qbr_impl([2024], ["player_name", "qbr_total"])
@@ -584,11 +562,11 @@ class TestMiscToolsIntegration:
         mock_df = pd.DataFrame({"col1": [1, 2, 3], "col2": ["a", "b", "c"]})
 
         with (
-            patch("fast_nfl_mcp.schema_manager.nfl.import_snap_counts") as mock_snap,
-            patch("fast_nfl_mcp.schema_manager.nfl.import_injuries") as mock_inj,
-            patch("fast_nfl_mcp.schema_manager.nfl.import_depth_charts") as mock_depth,
-            patch("fast_nfl_mcp.schema_manager.nfl.import_combine_data") as mock_comb,
-            patch("fast_nfl_mcp.schema_manager.nfl.import_qbr") as mock_qbr,
+            patch("fast_nfl_mcp.data.schema.nfl.import_snap_counts") as mock_snap,
+            patch("fast_nfl_mcp.data.schema.nfl.import_injuries") as mock_inj,
+            patch("fast_nfl_mcp.data.schema.nfl.import_depth_charts") as mock_depth,
+            patch("fast_nfl_mcp.data.schema.nfl.import_combine_data") as mock_comb,
+            patch("fast_nfl_mcp.data.schema.nfl.import_qbr") as mock_qbr,
         ):
             mock_snap.return_value = mock_df
             mock_inj.return_value = mock_df
@@ -623,7 +601,7 @@ class TestMiscToolsIntegration:
         """Test that invalid seasons are handled with warnings."""
         mock_df = pd.DataFrame({"col": [1, 2, 3]})
 
-        with patch("fast_nfl_mcp.schema_manager.nfl.import_snap_counts") as mock_import:
+        with patch("fast_nfl_mcp.data.schema.nfl.import_snap_counts") as mock_import:
             mock_import.return_value = mock_df
 
             # Seasons before MIN_SEASON should be filtered out

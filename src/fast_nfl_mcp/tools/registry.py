@@ -16,9 +16,9 @@ from typing import Annotated, Any
 from fastmcp import Context, FastMCP
 from pydantic import Field
 
-from fast_nfl_mcp.constants import BDB_AVAILABLE_WEEKS
-from fast_nfl_mcp.models import ErrorResponse, SuccessResponse
-from fast_nfl_mcp.schema_manager import SchemaManager
+from fast_nfl_mcp.core.models import ErrorResponse, SuccessResponse
+from fast_nfl_mcp.data.schema import SchemaManager
+from fast_nfl_mcp.utils.constants import BDB_AVAILABLE_WEEKS
 from fast_nfl_mcp.tools.bdb import (
     get_bdb_games_impl,
     get_bdb_players_impl,

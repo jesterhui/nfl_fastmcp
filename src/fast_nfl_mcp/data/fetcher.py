@@ -10,16 +10,16 @@ from typing import Any
 
 import pandas as pd
 
-from fast_nfl_mcp.constants import DEFAULT_MAX_ROWS, get_current_season_year
-from fast_nfl_mcp.models import (
+from fast_nfl_mcp.core.models import (
     ErrorResponse,
     SuccessResponse,
     create_error_response,
     create_success_response,
 )
-from fast_nfl_mcp.schema_manager import DATASET_DEFINITIONS
-from fast_nfl_mcp.serialization import convert_dataframe_to_records
-from fast_nfl_mcp.types import DatasetDefinition
+from fast_nfl_mcp.data.schema import DATASET_DEFINITIONS
+from fast_nfl_mcp.utils.constants import DEFAULT_MAX_ROWS, get_current_season_year
+from fast_nfl_mcp.utils.serialization import convert_dataframe_to_records
+from fast_nfl_mcp.utils.types import DatasetDefinition
 
 logger = logging.getLogger(__name__)
 

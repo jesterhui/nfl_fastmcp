@@ -11,8 +11,8 @@ from unittest.mock import MagicMock, patch
 import pandas as pd
 import pytest
 
-import fast_nfl_mcp.redis_cache as redis_cache_module
-from fast_nfl_mcp.redis_cache import (
+import fast_nfl_mcp.utils.cache as redis_cache_module
+from fast_nfl_mcp.utils.cache import (
     CONNECTION_RETRY_COOLDOWN_SECONDS,
     PLAYER_IDS_CACHE_KEY,
     get_cached_dataframe,
@@ -113,7 +113,7 @@ class TestRedisConnection:
 
                 # Reset time tracking to simulate cooldown passed
                 # (but shouldn't matter for ImportError)
-                monotonic_path = "fast_nfl_mcp.redis_cache.time.monotonic"
+                monotonic_path = "fast_nfl_mcp.utils.cache.time.monotonic"
                 with patch(monotonic_path, return_value=1000.0):
                     result2 = is_redis_available()
                     assert result2 is False
@@ -230,7 +230,8 @@ class TestDataFrameCachingWithMockedRedis:
             # Get it back
             retrieved_df = get_cached_dataframe("test_key")
             assert retrieved_df is not None
-            pd.testing.assert_frame_equal(retrieved_df, sample_df)
+            # check_dtype=False: Parquet may convert StringDtype to object
+            pd.testing.assert_frame_equal(retrieved_df, sample_df, check_dtype=False)
 
     def test_get_cached_dataframe_returns_none_on_miss(
         self, mock_redis_client: MagicMock

@@ -4,7 +4,7 @@ This module provides shared utility functions used across multiple modules,
 including response building helpers and warning merging utilities.
 """
 
-from fast_nfl_mcp.models import SuccessResponse, create_success_response
+from fast_nfl_mcp.core.models import SuccessResponse, create_success_response
 
 
 def merge_warnings(existing_warning: str | None, *warnings: str) -> str | None:

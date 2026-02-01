@@ -9,16 +9,16 @@ from unittest.mock import patch
 import pandas as pd
 import pytest
 
-from fast_nfl_mcp.constants import (
+from fast_nfl_mcp.core.models import ErrorResponse, SuccessResponse
+from fast_nfl_mcp.tools.rosters import get_rosters_impl
+from fast_nfl_mcp.utils.constants import (
     DEFAULT_MAX_ROWS,
     MAX_ROSTERS_SEASONS,
     MAX_WEEK,
     MIN_SEASON,
     MIN_WEEK,
 )
-from fast_nfl_mcp.models import ErrorResponse, SuccessResponse
-from fast_nfl_mcp.tools.rosters import get_rosters_impl
-from fast_nfl_mcp.tools.validation import (
+from fast_nfl_mcp.utils.validation import (
     normalize_filters,
     validate_seasons,
     validate_teams,
@@ -322,9 +322,7 @@ class TestGetRostersImpl:
 
     def test_successful_fetch(self, sample_rosters_df: pd.DataFrame) -> None:
         """Test successful data fetch returns SuccessResponse."""
-        with patch(
-            "fast_nfl_mcp.schema_manager.nfl.import_weekly_rosters"
-        ) as mock_import:
+        with patch("fast_nfl_mcp.data.schema.nfl.import_weekly_rosters") as mock_import:
             mock_import.return_value = sample_rosters_df
 
             result = get_rosters_impl([2024])
@@ -336,9 +334,7 @@ class TestGetRostersImpl:
 
     def test_team_filtering(self, sample_rosters_df: pd.DataFrame) -> None:
         """Test that team filtering works correctly."""
-        with patch(
-            "fast_nfl_mcp.schema_manager.nfl.import_weekly_rosters"
-        ) as mock_import:
+        with patch("fast_nfl_mcp.data.schema.nfl.import_weekly_rosters") as mock_import:
             mock_import.return_value = sample_rosters_df
 
             result = get_rosters_impl([2024], teams=["KC"])
@@ -352,9 +348,7 @@ class TestGetRostersImpl:
 
     def test_week_filtering(self, sample_rosters_df: pd.DataFrame) -> None:
         """Test that week filtering works correctly."""
-        with patch(
-            "fast_nfl_mcp.schema_manager.nfl.import_weekly_rosters"
-        ) as mock_import:
+        with patch("fast_nfl_mcp.data.schema.nfl.import_weekly_rosters") as mock_import:
             mock_import.return_value = sample_rosters_df
 
             result = get_rosters_impl([2024], weeks=[1])
@@ -367,9 +361,7 @@ class TestGetRostersImpl:
 
     def test_truncation_at_max_rows(self, large_rosters_df: pd.DataFrame) -> None:
         """Test that results are truncated at DEFAULT_MAX_ROWS."""
-        with patch(
-            "fast_nfl_mcp.schema_manager.nfl.import_weekly_rosters"
-        ) as mock_import:
+        with patch("fast_nfl_mcp.data.schema.nfl.import_weekly_rosters") as mock_import:
             mock_import.return_value = large_rosters_df
 
             result = get_rosters_impl([2024])
@@ -392,9 +384,7 @@ class TestGetRostersImpl:
 
     def test_invalid_seasons_warning(self, sample_rosters_df: pd.DataFrame) -> None:
         """Test that invalid seasons produce warning."""
-        with patch(
-            "fast_nfl_mcp.schema_manager.nfl.import_weekly_rosters"
-        ) as mock_import:
+        with patch("fast_nfl_mcp.data.schema.nfl.import_weekly_rosters") as mock_import:
             mock_import.return_value = sample_rosters_df
 
             result = get_rosters_impl([1990, 2024])
@@ -405,9 +395,7 @@ class TestGetRostersImpl:
 
     def test_too_many_seasons_warning(self, sample_rosters_df: pd.DataFrame) -> None:
         """Test that exceeding MAX_ROSTERS_SEASONS produces warning."""
-        with patch(
-            "fast_nfl_mcp.schema_manager.nfl.import_weekly_rosters"
-        ) as mock_import:
+        with patch("fast_nfl_mcp.data.schema.nfl.import_weekly_rosters") as mock_import:
             mock_import.return_value = sample_rosters_df
 
             result = get_rosters_impl([2019, 2020, 2021, 2022, 2023, 2024])
@@ -418,9 +406,7 @@ class TestGetRostersImpl:
 
     def test_invalid_teams_warning(self, sample_rosters_df: pd.DataFrame) -> None:
         """Test that invalid teams produce warning."""
-        with patch(
-            "fast_nfl_mcp.schema_manager.nfl.import_weekly_rosters"
-        ) as mock_import:
+        with patch("fast_nfl_mcp.data.schema.nfl.import_weekly_rosters") as mock_import:
             mock_import.return_value = sample_rosters_df
 
             result = get_rosters_impl([2024], teams=["KC", "XXX"])
@@ -431,9 +417,7 @@ class TestGetRostersImpl:
 
     def test_invalid_weeks_warning(self, sample_rosters_df: pd.DataFrame) -> None:
         """Test that invalid weeks produce warning."""
-        with patch(
-            "fast_nfl_mcp.schema_manager.nfl.import_weekly_rosters"
-        ) as mock_import:
+        with patch("fast_nfl_mcp.data.schema.nfl.import_weekly_rosters") as mock_import:
             mock_import.return_value = sample_rosters_df
 
             result = get_rosters_impl([2024], weeks=[0, 1, 20])
@@ -444,9 +428,7 @@ class TestGetRostersImpl:
 
     def test_network_error_handling(self) -> None:
         """Test that network errors return ErrorResponse."""
-        with patch(
-            "fast_nfl_mcp.schema_manager.nfl.import_weekly_rosters"
-        ) as mock_import:
+        with patch("fast_nfl_mcp.data.schema.nfl.import_weekly_rosters") as mock_import:
             mock_import.side_effect = Exception("Network timeout")
 
             result = get_rosters_impl([2024])
@@ -457,9 +439,7 @@ class TestGetRostersImpl:
 
     def test_empty_dataframe_returns_success(self) -> None:
         """Test that empty DataFrame returns success with warning."""
-        with patch(
-            "fast_nfl_mcp.schema_manager.nfl.import_weekly_rosters"
-        ) as mock_import:
+        with patch("fast_nfl_mcp.data.schema.nfl.import_weekly_rosters") as mock_import:
             mock_import.return_value = pd.DataFrame()
 
             result = get_rosters_impl([2024])
@@ -471,9 +451,7 @@ class TestGetRostersImpl:
 
     def test_columns_in_metadata(self, sample_rosters_df: pd.DataFrame) -> None:
         """Test that column names are included in metadata."""
-        with patch(
-            "fast_nfl_mcp.schema_manager.nfl.import_weekly_rosters"
-        ) as mock_import:
+        with patch("fast_nfl_mcp.data.schema.nfl.import_weekly_rosters") as mock_import:
             mock_import.return_value = sample_rosters_df
 
             result = get_rosters_impl([2024])
@@ -485,9 +463,7 @@ class TestGetRostersImpl:
 
     def test_data_types_converted(self, sample_rosters_df: pd.DataFrame) -> None:
         """Test that numpy types are converted to Python native types."""
-        with patch(
-            "fast_nfl_mcp.schema_manager.nfl.import_weekly_rosters"
-        ) as mock_import:
+        with patch("fast_nfl_mcp.data.schema.nfl.import_weekly_rosters") as mock_import:
             mock_import.return_value = sample_rosters_df
 
             result = get_rosters_impl([2024])
@@ -500,9 +476,7 @@ class TestGetRostersImpl:
 
     def test_combined_warnings(self, sample_rosters_df: pd.DataFrame) -> None:
         """Test that multiple warnings are combined."""
-        with patch(
-            "fast_nfl_mcp.schema_manager.nfl.import_weekly_rosters"
-        ) as mock_import:
+        with patch("fast_nfl_mcp.data.schema.nfl.import_weekly_rosters") as mock_import:
             mock_import.return_value = sample_rosters_df
 
             # Invalid season, invalid week, and invalid team
@@ -516,9 +490,7 @@ class TestGetRostersImpl:
 
     def test_filter_by_position(self, sample_rosters_df: pd.DataFrame) -> None:
         """Test filtering by position using filters parameter."""
-        with patch(
-            "fast_nfl_mcp.schema_manager.nfl.import_weekly_rosters"
-        ) as mock_import:
+        with patch("fast_nfl_mcp.data.schema.nfl.import_weekly_rosters") as mock_import:
             mock_import.return_value = sample_rosters_df
 
             result = get_rosters_impl([2024], filters={"position": "QB"})
@@ -534,9 +506,7 @@ class TestGetRostersImpl:
         self, sample_rosters_df: pd.DataFrame
     ) -> None:
         """Test combining team parameter with position filter."""
-        with patch(
-            "fast_nfl_mcp.schema_manager.nfl.import_weekly_rosters"
-        ) as mock_import:
+        with patch("fast_nfl_mcp.data.schema.nfl.import_weekly_rosters") as mock_import:
             mock_import.return_value = sample_rosters_df
 
             result = get_rosters_impl([2024], teams=["KC"], filters={"position": "QB"})
@@ -550,9 +520,7 @@ class TestGetRostersImpl:
 
     def test_filter_no_matches(self, sample_rosters_df: pd.DataFrame) -> None:
         """Test filters that match no rows."""
-        with patch(
-            "fast_nfl_mcp.schema_manager.nfl.import_weekly_rosters"
-        ) as mock_import:
+        with patch("fast_nfl_mcp.data.schema.nfl.import_weekly_rosters") as mock_import:
             mock_import.return_value = sample_rosters_df
 
             result = get_rosters_impl([2024], teams=["NYG"])
@@ -580,9 +548,7 @@ class TestGetRostersImpl:
         self, sample_rosters_df: pd.DataFrame
     ) -> None:
         """Test that all invalid teams does not call the data fetcher."""
-        with patch(
-            "fast_nfl_mcp.schema_manager.nfl.import_weekly_rosters"
-        ) as mock_import:
+        with patch("fast_nfl_mcp.data.schema.nfl.import_weekly_rosters") as mock_import:
             mock_import.return_value = sample_rosters_df
 
             result = get_rosters_impl([2024], teams=["XXX"])
@@ -596,9 +562,7 @@ class TestGetRostersImpl:
         self, sample_rosters_df: pd.DataFrame
     ) -> None:
         """Test that mixed valid/invalid teams only fetches valid teams."""
-        with patch(
-            "fast_nfl_mcp.schema_manager.nfl.import_weekly_rosters"
-        ) as mock_import:
+        with patch("fast_nfl_mcp.data.schema.nfl.import_weekly_rosters") as mock_import:
             mock_import.return_value = sample_rosters_df
 
             result = get_rosters_impl([2024], teams=["KC", "XXX"])
@@ -614,9 +578,7 @@ class TestGetRostersImpl:
 
     def test_pagination_with_offset(self, large_rosters_df: pd.DataFrame) -> None:
         """Test that offset skips rows for pagination."""
-        with patch(
-            "fast_nfl_mcp.schema_manager.nfl.import_weekly_rosters"
-        ) as mock_import:
+        with patch("fast_nfl_mcp.data.schema.nfl.import_weekly_rosters") as mock_import:
             mock_import.return_value = large_rosters_df
 
             result = get_rosters_impl([2024], offset=10)
@@ -629,9 +591,7 @@ class TestGetRostersImpl:
 
     def test_pagination_with_limit(self, large_rosters_df: pd.DataFrame) -> None:
         """Test that limit controls number of rows returned."""
-        with patch(
-            "fast_nfl_mcp.schema_manager.nfl.import_weekly_rosters"
-        ) as mock_import:
+        with patch("fast_nfl_mcp.data.schema.nfl.import_weekly_rosters") as mock_import:
             mock_import.return_value = large_rosters_df
 
             result = get_rosters_impl([2024], limit=5)
@@ -645,9 +605,7 @@ class TestGetRostersImpl:
         self, large_rosters_df: pd.DataFrame
     ) -> None:
         """Test pagination with both offset and limit."""
-        with patch(
-            "fast_nfl_mcp.schema_manager.nfl.import_weekly_rosters"
-        ) as mock_import:
+        with patch("fast_nfl_mcp.data.schema.nfl.import_weekly_rosters") as mock_import:
             mock_import.return_value = large_rosters_df
 
             result = get_rosters_impl([2024], offset=20, limit=15)
@@ -660,9 +618,7 @@ class TestGetRostersImpl:
 
     def test_column_selection(self, sample_rosters_df: pd.DataFrame) -> None:
         """Test that column selection works correctly."""
-        with patch(
-            "fast_nfl_mcp.schema_manager.nfl.import_weekly_rosters"
-        ) as mock_import:
+        with patch("fast_nfl_mcp.data.schema.nfl.import_weekly_rosters") as mock_import:
             mock_import.return_value = sample_rosters_df
 
             result = get_rosters_impl(

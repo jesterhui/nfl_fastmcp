@@ -12,17 +12,17 @@ from typing import Any
 import kagglehub
 import pandas as pd
 
-from fast_nfl_mcp.constants import (
-    BDB_AVAILABLE_WEEKS,
-    BDB_COMPETITION_HANDLE,
-    DEFAULT_MAX_ROWS_TRACKING,
-    MAX_ROWS_TRACKING,
-)
-from fast_nfl_mcp.models import (
+from fast_nfl_mcp.core.models import (
     ErrorResponse,
     SuccessResponse,
     create_error_response,
     create_success_response,
+)
+from fast_nfl_mcp.utils.constants import (
+    BDB_AVAILABLE_WEEKS,
+    BDB_COMPETITION_HANDLE,
+    DEFAULT_MAX_ROWS_TRACKING,
+    MAX_ROWS_TRACKING,
 )
 
 logger = logging.getLogger(__name__)

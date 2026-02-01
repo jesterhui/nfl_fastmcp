@@ -10,14 +10,18 @@ from unittest.mock import patch
 import pandas as pd
 import pytest
 
-from fast_nfl_mcp.constants import DEFAULT_MAX_ROWS, MAX_SEASONS_NGS, MIN_SEASON_NGS
-from fast_nfl_mcp.models import ErrorResponse, SuccessResponse
+from fast_nfl_mcp.core.models import ErrorResponse, SuccessResponse
 from fast_nfl_mcp.tools.next_gen import (
     get_ngs_passing_impl,
     get_ngs_receiving_impl,
     get_ngs_rushing_impl,
 )
-from fast_nfl_mcp.tools.validation import normalize_filters, validate_seasons
+from fast_nfl_mcp.utils.constants import (
+    DEFAULT_MAX_ROWS,
+    MAX_SEASONS_NGS,
+    MIN_SEASON_NGS,
+)
+from fast_nfl_mcp.utils.validation import normalize_filters, validate_seasons
 
 
 class TestValidateSeasons:
@@ -177,7 +181,7 @@ class TestGetNgsPassingImpl:
 
     def test_successful_fetch(self, sample_ngs_passing_df: pd.DataFrame) -> None:
         """Test successful data fetch returns SuccessResponse."""
-        with patch("fast_nfl_mcp.schema_manager.nfl.import_ngs_data") as mock_import:
+        with patch("fast_nfl_mcp.data.schema.nfl.import_ngs_data") as mock_import:
             mock_import.return_value = sample_ngs_passing_df
 
             result = get_ngs_passing_impl([2024])
@@ -189,7 +193,7 @@ class TestGetNgsPassingImpl:
 
     def test_team_filtering(self, sample_ngs_passing_df: pd.DataFrame) -> None:
         """Test that team filtering works correctly."""
-        with patch("fast_nfl_mcp.schema_manager.nfl.import_ngs_data") as mock_import:
+        with patch("fast_nfl_mcp.data.schema.nfl.import_ngs_data") as mock_import:
             mock_import.return_value = sample_ngs_passing_df
 
             result = get_ngs_passing_impl([2024], filters={"team_abbr": "KC"})
@@ -201,7 +205,7 @@ class TestGetNgsPassingImpl:
 
     def test_truncation_at_max_rows(self, large_ngs_df: pd.DataFrame) -> None:
         """Test that results are truncated at DEFAULT_MAX_ROWS."""
-        with patch("fast_nfl_mcp.schema_manager.nfl.import_ngs_data") as mock_import:
+        with patch("fast_nfl_mcp.data.schema.nfl.import_ngs_data") as mock_import:
             mock_import.return_value = large_ngs_df
 
             result = get_ngs_passing_impl([2024])
@@ -226,7 +230,7 @@ class TestGetNgsPassingImpl:
         self, sample_ngs_passing_df: pd.DataFrame
     ) -> None:
         """Test that exceeding MAX_SEASONS_NGS produces warning."""
-        with patch("fast_nfl_mcp.schema_manager.nfl.import_ngs_data") as mock_import:
+        with patch("fast_nfl_mcp.data.schema.nfl.import_ngs_data") as mock_import:
             mock_import.return_value = sample_ngs_passing_df
 
             result = get_ngs_passing_impl([2018, 2019, 2020, 2021, 2022, 2023, 2024])
@@ -237,7 +241,7 @@ class TestGetNgsPassingImpl:
 
     def test_pagination_with_offset(self, large_ngs_df: pd.DataFrame) -> None:
         """Test that offset skips rows for pagination."""
-        with patch("fast_nfl_mcp.schema_manager.nfl.import_ngs_data") as mock_import:
+        with patch("fast_nfl_mcp.data.schema.nfl.import_ngs_data") as mock_import:
             mock_import.return_value = large_ngs_df
 
             result = get_ngs_passing_impl([2024], offset=10)
@@ -250,7 +254,7 @@ class TestGetNgsPassingImpl:
 
     def test_pagination_with_limit(self, large_ngs_df: pd.DataFrame) -> None:
         """Test that limit controls number of rows returned."""
-        with patch("fast_nfl_mcp.schema_manager.nfl.import_ngs_data") as mock_import:
+        with patch("fast_nfl_mcp.data.schema.nfl.import_ngs_data") as mock_import:
             mock_import.return_value = large_ngs_df
 
             result = get_ngs_passing_impl([2024], limit=5)
@@ -262,7 +266,7 @@ class TestGetNgsPassingImpl:
 
     def test_network_error_handling(self) -> None:
         """Test that network errors return ErrorResponse."""
-        with patch("fast_nfl_mcp.schema_manager.nfl.import_ngs_data") as mock_import:
+        with patch("fast_nfl_mcp.data.schema.nfl.import_ngs_data") as mock_import:
             mock_import.side_effect = Exception("Network timeout")
 
             result = get_ngs_passing_impl([2024])
@@ -273,7 +277,7 @@ class TestGetNgsPassingImpl:
 
     def test_columns_in_metadata(self, sample_ngs_passing_df: pd.DataFrame) -> None:
         """Test that column names are included in metadata."""
-        with patch("fast_nfl_mcp.schema_manager.nfl.import_ngs_data") as mock_import:
+        with patch("fast_nfl_mcp.data.schema.nfl.import_ngs_data") as mock_import:
             mock_import.return_value = sample_ngs_passing_df
 
             result = get_ngs_passing_impl([2024])
@@ -311,7 +315,7 @@ class TestGetNgsRushingImpl:
 
     def test_successful_fetch(self, sample_ngs_rushing_df: pd.DataFrame) -> None:
         """Test successful data fetch returns SuccessResponse."""
-        with patch("fast_nfl_mcp.schema_manager.nfl.import_ngs_data") as mock_import:
+        with patch("fast_nfl_mcp.data.schema.nfl.import_ngs_data") as mock_import:
             mock_import.return_value = sample_ngs_rushing_df
 
             result = get_ngs_rushing_impl([2024])
@@ -323,7 +327,7 @@ class TestGetNgsRushingImpl:
 
     def test_team_filtering(self, sample_ngs_rushing_df: pd.DataFrame) -> None:
         """Test that team filtering works correctly."""
-        with patch("fast_nfl_mcp.schema_manager.nfl.import_ngs_data") as mock_import:
+        with patch("fast_nfl_mcp.data.schema.nfl.import_ngs_data") as mock_import:
             mock_import.return_value = sample_ngs_rushing_df
 
             result = get_ngs_rushing_impl([2024], filters={"team_abbr": "SF"})
@@ -345,7 +349,7 @@ class TestGetNgsRushingImpl:
 
     def test_network_error_handling(self) -> None:
         """Test that network errors return ErrorResponse."""
-        with patch("fast_nfl_mcp.schema_manager.nfl.import_ngs_data") as mock_import:
+        with patch("fast_nfl_mcp.data.schema.nfl.import_ngs_data") as mock_import:
             mock_import.side_effect = Exception("Network timeout")
 
             result = get_ngs_rushing_impl([2024])
@@ -356,7 +360,7 @@ class TestGetNgsRushingImpl:
 
     def test_columns_in_metadata(self, sample_ngs_rushing_df: pd.DataFrame) -> None:
         """Test that column names are included in metadata."""
-        with patch("fast_nfl_mcp.schema_manager.nfl.import_ngs_data") as mock_import:
+        with patch("fast_nfl_mcp.data.schema.nfl.import_ngs_data") as mock_import:
             mock_import.return_value = sample_ngs_rushing_df
 
             result = get_ngs_rushing_impl([2024])
@@ -396,7 +400,7 @@ class TestGetNgsReceivingImpl:
 
     def test_successful_fetch(self, sample_ngs_receiving_df: pd.DataFrame) -> None:
         """Test successful data fetch returns SuccessResponse."""
-        with patch("fast_nfl_mcp.schema_manager.nfl.import_ngs_data") as mock_import:
+        with patch("fast_nfl_mcp.data.schema.nfl.import_ngs_data") as mock_import:
             mock_import.return_value = sample_ngs_receiving_df
 
             result = get_ngs_receiving_impl([2024])
@@ -408,7 +412,7 @@ class TestGetNgsReceivingImpl:
 
     def test_team_filtering(self, sample_ngs_receiving_df: pd.DataFrame) -> None:
         """Test that team filtering works correctly."""
-        with patch("fast_nfl_mcp.schema_manager.nfl.import_ngs_data") as mock_import:
+        with patch("fast_nfl_mcp.data.schema.nfl.import_ngs_data") as mock_import:
             mock_import.return_value = sample_ngs_receiving_df
 
             result = get_ngs_receiving_impl([2024], filters={"team_abbr": "MIA"})
@@ -430,7 +434,7 @@ class TestGetNgsReceivingImpl:
 
     def test_network_error_handling(self) -> None:
         """Test that network errors return ErrorResponse."""
-        with patch("fast_nfl_mcp.schema_manager.nfl.import_ngs_data") as mock_import:
+        with patch("fast_nfl_mcp.data.schema.nfl.import_ngs_data") as mock_import:
             mock_import.side_effect = Exception("Network timeout")
 
             result = get_ngs_receiving_impl([2024])
@@ -441,7 +445,7 @@ class TestGetNgsReceivingImpl:
 
     def test_columns_in_metadata(self, sample_ngs_receiving_df: pd.DataFrame) -> None:
         """Test that column names are included in metadata."""
-        with patch("fast_nfl_mcp.schema_manager.nfl.import_ngs_data") as mock_import:
+        with patch("fast_nfl_mcp.data.schema.nfl.import_ngs_data") as mock_import:
             mock_import.return_value = sample_ngs_receiving_df
 
             result = get_ngs_receiving_impl([2024])

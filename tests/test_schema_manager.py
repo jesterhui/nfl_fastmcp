@@ -14,15 +14,15 @@ import numpy as np
 import pandas as pd
 import pytest
 
-import fast_nfl_mcp.constants as constants_module
-from fast_nfl_mcp.constants import MIN_SEASON, get_current_season_year
-from fast_nfl_mcp.models import ColumnSchema, DatasetSchema
-from fast_nfl_mcp.schema_manager import (
+import fast_nfl_mcp.utils.constants as constants_module
+from fast_nfl_mcp.core.models import ColumnSchema, DatasetSchema
+from fast_nfl_mcp.data.schema import (
     DATASET_DEFINITIONS,
     SchemaManager,
     _extract_column_schema,
 )
-from fast_nfl_mcp.serialization import extract_sample_values
+from fast_nfl_mcp.utils.constants import MIN_SEASON, get_current_season_year
+from fast_nfl_mcp.utils.serialization import extract_sample_values
 
 
 class TestExtractSampleValues:
@@ -233,10 +233,10 @@ class TestSchemaManagerWithMocks:
         self, mock_nfl_module: MagicMock, mock_dataframe: pd.DataFrame
     ) -> None:
         """Test that preload_all loads all datasets successfully."""
-        from fast_nfl_mcp.types import DatasetDefinition
+        from fast_nfl_mcp.utils.types import DatasetDefinition
 
         with patch.dict(
-            "fast_nfl_mcp.schema_manager.DATASET_DEFINITIONS",
+            "fast_nfl_mcp.data.schema.DATASET_DEFINITIONS",
             {
                 "test_dataset": DatasetDefinition(
                     loader=lambda _: mock_dataframe,
@@ -256,10 +256,10 @@ class TestSchemaManagerWithMocks:
         self, mock_nfl_module: MagicMock, mock_dataframe: pd.DataFrame
     ) -> None:
         """Test that loaded schemas are cached."""
-        from fast_nfl_mcp.types import DatasetDefinition
+        from fast_nfl_mcp.utils.types import DatasetDefinition
 
         with patch.dict(
-            "fast_nfl_mcp.schema_manager.DATASET_DEFINITIONS",
+            "fast_nfl_mcp.data.schema.DATASET_DEFINITIONS",
             {
                 "test_dataset": DatasetDefinition(
                     loader=lambda _: mock_dataframe,
@@ -282,10 +282,10 @@ class TestSchemaManagerWithMocks:
         self, mock_nfl_module: MagicMock, mock_dataframe: pd.DataFrame
     ) -> None:
         """Test that column schemas are correctly extracted."""
-        from fast_nfl_mcp.types import DatasetDefinition
+        from fast_nfl_mcp.utils.types import DatasetDefinition
 
         with patch.dict(
-            "fast_nfl_mcp.schema_manager.DATASET_DEFINITIONS",
+            "fast_nfl_mcp.data.schema.DATASET_DEFINITIONS",
             {
                 "test_dataset": DatasetDefinition(
                     loader=lambda _: mock_dataframe,
@@ -310,13 +310,13 @@ class TestSchemaManagerWithMocks:
 
     def test_preload_handles_failed_datasets(self) -> None:
         """Test that failed datasets are tracked when OSError occurs."""
-        from fast_nfl_mcp.types import DatasetDefinition
+        from fast_nfl_mcp.utils.types import DatasetDefinition
 
         def raise_error(_: object) -> pd.DataFrame:
             raise OSError("Network error")
 
         with patch.dict(
-            "fast_nfl_mcp.schema_manager.DATASET_DEFINITIONS",
+            "fast_nfl_mcp.data.schema.DATASET_DEFINITIONS",
             {
                 "failing_dataset": DatasetDefinition(
                     loader=raise_error,
@@ -335,13 +335,13 @@ class TestSchemaManagerWithMocks:
 
     def test_preload_handles_connection_error(self) -> None:
         """Test that ConnectionError is handled during preload."""
-        from fast_nfl_mcp.types import DatasetDefinition
+        from fast_nfl_mcp.utils.types import DatasetDefinition
 
         def raise_connection_error(_: object) -> pd.DataFrame:
             raise ConnectionError("Unable to connect")
 
         with patch.dict(
-            "fast_nfl_mcp.schema_manager.DATASET_DEFINITIONS",
+            "fast_nfl_mcp.data.schema.DATASET_DEFINITIONS",
             {
                 "failing_dataset": DatasetDefinition(
                     loader=raise_connection_error,
@@ -358,13 +358,13 @@ class TestSchemaManagerWithMocks:
 
     def test_preload_handles_runtime_error(self) -> None:
         """Test that RuntimeError is handled during preload."""
-        from fast_nfl_mcp.types import DatasetDefinition
+        from fast_nfl_mcp.utils.types import DatasetDefinition
 
         def raise_runtime_error(_: object) -> pd.DataFrame:
             raise RuntimeError("Something went wrong")
 
         with patch.dict(
-            "fast_nfl_mcp.schema_manager.DATASET_DEFINITIONS",
+            "fast_nfl_mcp.data.schema.DATASET_DEFINITIONS",
             {
                 "failing_dataset": DatasetDefinition(
                     loader=raise_runtime_error,
@@ -381,13 +381,13 @@ class TestSchemaManagerWithMocks:
 
     def test_preload_keyboard_interrupt_propagates(self) -> None:
         """Test that KeyboardInterrupt is not caught and propagates correctly."""
-        from fast_nfl_mcp.types import DatasetDefinition
+        from fast_nfl_mcp.utils.types import DatasetDefinition
 
         def raise_keyboard_interrupt(_: object) -> pd.DataFrame:
             raise KeyboardInterrupt()
 
         with patch.dict(
-            "fast_nfl_mcp.schema_manager.DATASET_DEFINITIONS",
+            "fast_nfl_mcp.data.schema.DATASET_DEFINITIONS",
             {
                 "interrupt_dataset": DatasetDefinition(
                     loader=raise_keyboard_interrupt,
@@ -403,12 +403,12 @@ class TestSchemaManagerWithMocks:
 
     def test_preload_handles_empty_dataframe(self) -> None:
         """Test that empty DataFrames are handled gracefully."""
-        from fast_nfl_mcp.types import DatasetDefinition
+        from fast_nfl_mcp.utils.types import DatasetDefinition
 
         empty_df = pd.DataFrame()
 
         with patch.dict(
-            "fast_nfl_mcp.schema_manager.DATASET_DEFINITIONS",
+            "fast_nfl_mcp.data.schema.DATASET_DEFINITIONS",
             {
                 "empty_dataset": DatasetDefinition(
                     loader=lambda _: empty_df,
@@ -430,10 +430,10 @@ class TestSchemaManagerWithMocks:
         self, mock_dataframe: pd.DataFrame
     ) -> None:
         """Test that list_datasets shows correct status after loading."""
-        from fast_nfl_mcp.types import DatasetDefinition
+        from fast_nfl_mcp.utils.types import DatasetDefinition
 
         with patch.dict(
-            "fast_nfl_mcp.schema_manager.DATASET_DEFINITIONS",
+            "fast_nfl_mcp.data.schema.DATASET_DEFINITIONS",
             {
                 "loaded_dataset": DatasetDefinition(
                     loader=lambda _: mock_dataframe,
@@ -452,13 +452,13 @@ class TestSchemaManagerWithMocks:
 
     def test_list_datasets_shows_failed_status(self) -> None:
         """Test that list_datasets shows failed status for failed datasets."""
-        from fast_nfl_mcp.types import DatasetDefinition
+        from fast_nfl_mcp.utils.types import DatasetDefinition
 
         def raise_error(_: object) -> pd.DataFrame:
             raise Exception("Network error")
 
         with patch.dict(
-            "fast_nfl_mcp.schema_manager.DATASET_DEFINITIONS",
+            "fast_nfl_mcp.data.schema.DATASET_DEFINITIONS",
             {
                 "failing_dataset": DatasetDefinition(
                     loader=raise_error,
@@ -479,10 +479,10 @@ class TestSchemaManagerWithMocks:
         self, mock_dataframe: pd.DataFrame
     ) -> None:
         """Test that seasonal datasets include available_seasons."""
-        from fast_nfl_mcp.types import DatasetDefinition
+        from fast_nfl_mcp.utils.types import DatasetDefinition
 
         with patch.dict(
-            "fast_nfl_mcp.schema_manager.DATASET_DEFINITIONS",
+            "fast_nfl_mcp.data.schema.DATASET_DEFINITIONS",
             {
                 "seasonal_dataset": DatasetDefinition(
                     loader=lambda _: mock_dataframe,
@@ -508,10 +508,10 @@ class TestSchemaManagerWithMocks:
         self, mock_dataframe: pd.DataFrame
     ) -> None:
         """Test that non-seasonal datasets have None for available_seasons."""
-        from fast_nfl_mcp.types import DatasetDefinition
+        from fast_nfl_mcp.utils.types import DatasetDefinition
 
         with patch.dict(
-            "fast_nfl_mcp.schema_manager.DATASET_DEFINITIONS",
+            "fast_nfl_mcp.data.schema.DATASET_DEFINITIONS",
             {
                 "non_seasonal": DatasetDefinition(
                     loader=lambda _: mock_dataframe,
@@ -566,7 +566,7 @@ class TestDatasetDefinitions:
 
     def test_definitions_have_correct_structure(self) -> None:
         """Test that all definitions have the correct DatasetDefinition structure."""
-        from fast_nfl_mcp.types import DatasetDefinition
+        from fast_nfl_mcp.utils.types import DatasetDefinition
 
         for name, definition in DATASET_DEFINITIONS.items():
             assert isinstance(
@@ -594,12 +594,12 @@ class TestSchemaManagerSerialization:
 
     def test_schema_to_dict_works(self) -> None:
         """Test that DatasetSchema.to_dict works for cached schemas."""
-        from fast_nfl_mcp.types import DatasetDefinition
+        from fast_nfl_mcp.utils.types import DatasetDefinition
 
         df = pd.DataFrame({"col1": [1, 2], "col2": ["a", "b"]})
 
         with patch.dict(
-            "fast_nfl_mcp.schema_manager.DATASET_DEFINITIONS",
+            "fast_nfl_mcp.data.schema.DATASET_DEFINITIONS",
             {
                 "test": DatasetDefinition(
                     loader=lambda _: df,
@@ -621,7 +621,7 @@ class TestSchemaManagerSerialization:
 
     def test_column_sample_values_are_json_serializable(self) -> None:
         """Test that sample values can be JSON serialized."""
-        from fast_nfl_mcp.types import DatasetDefinition
+        from fast_nfl_mcp.utils.types import DatasetDefinition
 
         df = pd.DataFrame(
             {
@@ -632,7 +632,7 @@ class TestSchemaManagerSerialization:
         )
 
         with patch.dict(
-            "fast_nfl_mcp.schema_manager.DATASET_DEFINITIONS",
+            "fast_nfl_mcp.data.schema.DATASET_DEFINITIONS",
             {
                 "test": DatasetDefinition(
                     loader=lambda _: df,
@@ -658,7 +658,7 @@ class TestGetCurrentSeasonYear:
 
     def test_january_returns_previous_year(self) -> None:
         """Test that January returns the previous year's season."""
-        with patch("fast_nfl_mcp.constants.date") as mock_date:
+        with patch("fast_nfl_mcp.utils.constants.date") as mock_date:
             mock_date.today.return_value = date(2026, 1, 15)
             original_date = constants_module.date
             try:
@@ -671,7 +671,7 @@ class TestGetCurrentSeasonYear:
 
     def test_february_returns_previous_year(self) -> None:
         """Test that February (Super Bowl time) returns previous year's season."""
-        with patch("fast_nfl_mcp.constants.date") as mock_date:
+        with patch("fast_nfl_mcp.utils.constants.date") as mock_date:
             mock_date.today.return_value = date(2026, 2, 12)
             original_date = constants_module.date
             try:
@@ -684,7 +684,7 @@ class TestGetCurrentSeasonYear:
 
     def test_august_returns_previous_year(self) -> None:
         """Test that August (pre-season) returns previous year's season."""
-        with patch("fast_nfl_mcp.constants.date") as mock_date:
+        with patch("fast_nfl_mcp.utils.constants.date") as mock_date:
             mock_date.today.return_value = date(2026, 8, 31)
             original_date = constants_module.date
             try:
@@ -697,7 +697,7 @@ class TestGetCurrentSeasonYear:
 
     def test_september_returns_current_year(self) -> None:
         """Test that September (season start) returns current year's season."""
-        with patch("fast_nfl_mcp.constants.date") as mock_date:
+        with patch("fast_nfl_mcp.utils.constants.date") as mock_date:
             mock_date.today.return_value = date(2026, 9, 1)
             original_date = constants_module.date
             try:
@@ -710,7 +710,7 @@ class TestGetCurrentSeasonYear:
 
     def test_december_returns_current_year(self) -> None:
         """Test that December (mid-season) returns current year's season."""
-        with patch("fast_nfl_mcp.constants.date") as mock_date:
+        with patch("fast_nfl_mcp.utils.constants.date") as mock_date:
             mock_date.today.return_value = date(2026, 12, 15)
             original_date = constants_module.date
             try:
@@ -723,7 +723,7 @@ class TestGetCurrentSeasonYear:
 
     def test_november_returns_current_year(self) -> None:
         """Test that November returns current year's season."""
-        with patch("fast_nfl_mcp.constants.date") as mock_date:
+        with patch("fast_nfl_mcp.utils.constants.date") as mock_date:
             mock_date.today.return_value = date(2026, 11, 20)
             original_date = constants_module.date
             try:
@@ -747,12 +747,12 @@ class TestDynamicSeasonInSchemaManager:
 
     def test_available_seasons_starts_at_min_season(self) -> None:
         """Test that available_seasons starts at MIN_SEASON (1999)."""
-        from fast_nfl_mcp.types import DatasetDefinition
+        from fast_nfl_mcp.utils.types import DatasetDefinition
 
         mock_df = pd.DataFrame({"col": [1, 2, 3]})
 
         with patch.dict(
-            "fast_nfl_mcp.schema_manager.DATASET_DEFINITIONS",
+            "fast_nfl_mcp.data.schema.DATASET_DEFINITIONS",
             {
                 "test_seasonal": DatasetDefinition(
                     loader=lambda _: mock_df,
@@ -772,12 +772,12 @@ class TestDynamicSeasonInSchemaManager:
 
     def test_available_seasons_ends_at_current_season(self) -> None:
         """Test that available_seasons ends at the current season."""
-        from fast_nfl_mcp.types import DatasetDefinition
+        from fast_nfl_mcp.utils.types import DatasetDefinition
 
         mock_df = pd.DataFrame({"col": [1, 2, 3]})
 
         with patch.dict(
-            "fast_nfl_mcp.schema_manager.DATASET_DEFINITIONS",
+            "fast_nfl_mcp.data.schema.DATASET_DEFINITIONS",
             {
                 "test_seasonal": DatasetDefinition(
                     loader=lambda _: mock_df,
@@ -799,12 +799,12 @@ class TestDynamicSeasonInSchemaManager:
 
     def test_available_seasons_is_continuous_range(self) -> None:
         """Test that available_seasons is a continuous range from MIN_SEASON to current."""
-        from fast_nfl_mcp.types import DatasetDefinition
+        from fast_nfl_mcp.utils.types import DatasetDefinition
 
         mock_df = pd.DataFrame({"col": [1, 2, 3]})
 
         with patch.dict(
-            "fast_nfl_mcp.schema_manager.DATASET_DEFINITIONS",
+            "fast_nfl_mcp.data.schema.DATASET_DEFINITIONS",
             {
                 "test_seasonal": DatasetDefinition(
                     loader=lambda _: mock_df,
@@ -831,7 +831,7 @@ class TestSchemaManagerTimeoutHandling:
 
     def test_preload_completes_without_raising_on_global_timeout(self) -> None:
         """Test that preload_all completes without raising when global timeout is reached."""
-        from fast_nfl_mcp.types import DatasetDefinition
+        from fast_nfl_mcp.utils.types import DatasetDefinition
 
         def slow_loader(_: object) -> pd.DataFrame:
             """A loader that takes too long."""
@@ -839,7 +839,7 @@ class TestSchemaManagerTimeoutHandling:
             return pd.DataFrame({"col": [1, 2, 3]})
 
         with patch.dict(
-            "fast_nfl_mcp.schema_manager.DATASET_DEFINITIONS",
+            "fast_nfl_mcp.data.schema.DATASET_DEFINITIONS",
             {
                 "slow_dataset": DatasetDefinition(
                     loader=slow_loader,
@@ -861,7 +861,7 @@ class TestSchemaManagerTimeoutHandling:
 
     def test_preload_marks_pending_datasets_as_failed_on_timeout(self) -> None:
         """Test that pending datasets are added to _failed_datasets on timeout."""
-        from fast_nfl_mcp.types import DatasetDefinition
+        from fast_nfl_mcp.utils.types import DatasetDefinition
 
         call_count = {"fast": 0, "slow": 0}
 
@@ -877,7 +877,7 @@ class TestSchemaManagerTimeoutHandling:
             return pd.DataFrame({"col": [1, 2, 3]})
 
         with patch.dict(
-            "fast_nfl_mcp.schema_manager.DATASET_DEFINITIONS",
+            "fast_nfl_mcp.data.schema.DATASET_DEFINITIONS",
             {
                 "fast_dataset": DatasetDefinition(
                     loader=fast_loader,
@@ -906,7 +906,7 @@ class TestSchemaManagerTimeoutHandling:
         self, caplog: pytest.LogCaptureFixture
     ) -> None:
         """Test that timeout is logged appropriately."""
-        from fast_nfl_mcp.types import DatasetDefinition
+        from fast_nfl_mcp.utils.types import DatasetDefinition
 
         def slow_loader(_: object) -> pd.DataFrame:
             """A loader that takes too long."""
@@ -914,7 +914,7 @@ class TestSchemaManagerTimeoutHandling:
             return pd.DataFrame({"col": [1, 2, 3]})
 
         with patch.dict(
-            "fast_nfl_mcp.schema_manager.DATASET_DEFINITIONS",
+            "fast_nfl_mcp.data.schema.DATASET_DEFINITIONS",
             {
                 "slow_dataset": DatasetDefinition(
                     loader=slow_loader,
@@ -937,7 +937,7 @@ class TestSchemaManagerTimeoutHandling:
 
     def test_preload_handles_mixed_success_and_timeout(self) -> None:
         """Test preload handles a mix of successful and timed-out datasets."""
-        from fast_nfl_mcp.types import DatasetDefinition
+        from fast_nfl_mcp.utils.types import DatasetDefinition
 
         def fast_loader(_: object) -> pd.DataFrame:
             return pd.DataFrame({"a": [1, 2]})
@@ -951,7 +951,7 @@ class TestSchemaManagerTimeoutHandling:
             return pd.DataFrame({"c": [5, 6]})
 
         with patch.dict(
-            "fast_nfl_mcp.schema_manager.DATASET_DEFINITIONS",
+            "fast_nfl_mcp.data.schema.DATASET_DEFINITIONS",
             {
                 "fast": DatasetDefinition(
                     loader=fast_loader, description="Fast", supports_seasons=False
@@ -978,7 +978,7 @@ class TestSchemaManagerTimeoutHandling:
 
     def test_preload_reports_correct_counts_after_timeout(self) -> None:
         """Test that loaded and failed counts are correct after timeout."""
-        from fast_nfl_mcp.types import DatasetDefinition
+        from fast_nfl_mcp.utils.types import DatasetDefinition
 
         def fast_loader(_: object) -> pd.DataFrame:
             return pd.DataFrame({"col": [1]})
@@ -988,7 +988,7 @@ class TestSchemaManagerTimeoutHandling:
             return pd.DataFrame({"col": [2]})
 
         with patch.dict(
-            "fast_nfl_mcp.schema_manager.DATASET_DEFINITIONS",
+            "fast_nfl_mcp.data.schema.DATASET_DEFINITIONS",
             {
                 "fast1": DatasetDefinition(
                     loader=fast_loader, description="Fast 1", supports_seasons=False
@@ -1011,14 +1011,14 @@ class TestSchemaManagerTimeoutHandling:
 
     def test_list_datasets_shows_timeout_as_failed(self) -> None:
         """Test that list_datasets shows timed-out datasets as failed."""
-        from fast_nfl_mcp.types import DatasetDefinition
+        from fast_nfl_mcp.utils.types import DatasetDefinition
 
         def slow_loader(_: object) -> pd.DataFrame:
             time.sleep(2.0)
             return pd.DataFrame({"col": [1]})
 
         with patch.dict(
-            "fast_nfl_mcp.schema_manager.DATASET_DEFINITIONS",
+            "fast_nfl_mcp.data.schema.DATASET_DEFINITIONS",
             {
                 "timeout_dataset": DatasetDefinition(
                     loader=slow_loader,

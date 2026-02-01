@@ -12,9 +12,9 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from fast_nfl_mcp.constants import MIN_SEASON, get_current_season_year
-from fast_nfl_mcp.models import ColumnSchema, DatasetSchema
-from fast_nfl_mcp.schema_manager import SchemaManager
+from fast_nfl_mcp.core.models import ColumnSchema, DatasetSchema
+from fast_nfl_mcp.data.schema import SchemaManager
+from fast_nfl_mcp.utils.constants import MIN_SEASON, get_current_season_year
 
 # =============================================================================
 # Sample DataFrames
@@ -183,7 +183,7 @@ def mock_schema_manager(sample_play_by_play_df: pd.DataFrame) -> SchemaManager:
     }
 
     with patch.dict(
-        "fast_nfl_mcp.schema_manager.DATASET_DEFINITIONS",
+        "fast_nfl_mcp.data.schema.DATASET_DEFINITIONS",
         mock_definitions,
         clear=True,
     ):
@@ -213,7 +213,7 @@ def schema_manager_with_failures() -> SchemaManager:
     }
 
     with patch.dict(
-        "fast_nfl_mcp.schema_manager.DATASET_DEFINITIONS",
+        "fast_nfl_mcp.data.schema.DATASET_DEFINITIONS",
         mock_definitions,
         clear=True,
     ):
@@ -312,7 +312,7 @@ def sample_weeks() -> list[int]:
 @pytest.fixture
 def assert_valid_success_response() -> Any:
     """Return a function that asserts a valid SuccessResponse structure."""
-    from fast_nfl_mcp.models import SuccessResponse
+    from fast_nfl_mcp.core.models import SuccessResponse
 
     def _assert(response: SuccessResponse) -> None:
         assert response.success is True
@@ -326,7 +326,7 @@ def assert_valid_success_response() -> Any:
 @pytest.fixture
 def assert_valid_error_response() -> Any:
     """Return a function that asserts a valid ErrorResponse structure."""
-    from fast_nfl_mcp.models import ErrorResponse
+    from fast_nfl_mcp.core.models import ErrorResponse
 
     def _assert(response: ErrorResponse) -> None:
         assert response.success is False

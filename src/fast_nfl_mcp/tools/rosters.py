@@ -6,20 +6,20 @@ NFL team roster data with filtering by seasons, weeks, and teams.
 
 from typing import Any
 
-from fast_nfl_mcp.constants import MAX_ROSTERS_SEASONS
-from fast_nfl_mcp.models import (
+from fast_nfl_mcp.core.models import (
     ErrorResponse,
     SuccessResponse,
     create_success_response,
 )
-from fast_nfl_mcp.nfl_data_py_fetcher import NFLDataPyFetcher
-from fast_nfl_mcp.tools.validation import (
+from fast_nfl_mcp.data.fetcher import NFLDataPyFetcher
+from fast_nfl_mcp.utils.constants import MAX_ROSTERS_SEASONS
+from fast_nfl_mcp.utils.helpers import add_warnings_to_response
+from fast_nfl_mcp.utils.validation import (
     normalize_filters,
     validate_seasons,
     validate_teams,
     validate_weeks,
 )
-from fast_nfl_mcp.utils import add_warnings_to_response
 
 
 def get_rosters_impl(
