@@ -157,14 +157,15 @@ def get_bdb_tracking_impl(
             f"Valid weeks for BDB 2025 are: {list(BDB_AVAILABLE_WEEKS)}"
         )
 
-    # Validate play_id requires game_id
-    if play_id is not None and game_id is None:
+    normalized_filters = normalize_filters(filters)
+
+    # Validate play_id requires game_id (either as parameter or in filters)
+    has_game_id = game_id is not None or "game_id" in normalized_filters
+    if play_id is not None and not has_game_id:
         return create_error_response(
             error="play_id filter requires game_id. "
             "Please specify game_id along with play_id."
         )
-
-    normalized_filters = normalize_filters(filters)
 
     # Add provided filters
     if game_id is not None:

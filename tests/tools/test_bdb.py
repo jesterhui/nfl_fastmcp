@@ -288,6 +288,17 @@ class TestGetBdbTrackingImpl:
         assert isinstance(result, ErrorResponse)
         assert "play_id filter requires game_id" in result.error
 
+    def test_play_id_accepts_game_id_in_filters(self, mock_bdb_data: None) -> None:
+        """Test that play_id accepts game_id from filters dict."""
+        result = get_bdb_tracking_impl(
+            week=1, play_id=1, filters={"game_id": 2023090700}
+        )
+
+        assert isinstance(result, SuccessResponse)
+        for row in result.data:
+            assert row["game_id"] == 2023090700
+            assert row["play_id"] == 1
+
     def test_with_game_id_filter(self, mock_bdb_data: None) -> None:
         """Test tracking fetch filtered by game_id."""
         result = get_bdb_tracking_impl(week=1, game_id=2023090700, limit=100)
