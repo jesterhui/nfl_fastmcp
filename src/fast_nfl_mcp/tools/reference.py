@@ -11,10 +11,10 @@ from typing import Any
 import pandas as pd
 
 from fast_nfl_mcp.constants import (
+    DEFAULT_PLAYER_IDS_CACHE_TTL_SECONDS,
     LOOKUP_PLAYER_COLUMNS,
     LOOKUP_PLAYER_DEFAULT_LIMIT,
     LOOKUP_PLAYER_MAX_LIMIT,
-    get_player_ids_cache_ttl,
 )
 from fast_nfl_mcp.enums import DatasetName
 from fast_nfl_mcp.models import (
@@ -198,7 +198,7 @@ def lookup_player_impl(
 
             # Cache the result if load succeeded
             if df is not None and not df.empty:
-                ttl = get_player_ids_cache_ttl()
+                ttl = DEFAULT_PLAYER_IDS_CACHE_TTL_SECONDS
                 if set_cached_dataframe(PLAYER_IDS_CACHE_KEY, df, ttl):
                     logger.info(f"Cached player_ids DataFrame (TTL: {ttl}s)")
         else:

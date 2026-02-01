@@ -991,60 +991,28 @@ class TestLookupPlayerCaching:
             call_args = mock_set_cache.call_args
             assert call_args[0][0] == PLAYER_IDS_CACHE_KEY
 
-    def test_cache_ttl_from_environment(
-        self, sample_player_ids_df: pd.DataFrame
-    ) -> None:
-        """Test that cache TTL is read from environment variable."""
-        import os
-
-        with patch.dict(os.environ, {"PLAYER_IDS_CACHE_TTL_SECONDS": "7200"}):
-            with (
-                patch("fast_nfl_mcp.schema_manager.nfl.import_ids") as mock_import,
-                patch(
-                    "fast_nfl_mcp.tools.reference.get_cached_dataframe"
-                ) as mock_get_cache,
-                patch(
-                    "fast_nfl_mcp.tools.reference.set_cached_dataframe"
-                ) as mock_set_cache,
-            ):
-                mock_import.return_value = sample_player_ids_df
-                mock_get_cache.return_value = None
-                mock_set_cache.return_value = True
-
-                lookup_player_impl("Mahomes")
-
-                # Verify TTL of 7200 was used
-                call_args = mock_set_cache.call_args
-                assert call_args[0][2] == 7200
-
-    def test_cache_ttl_default_value(self, sample_player_ids_df: pd.DataFrame) -> None:
-        """Test that default cache TTL is used when env var not set."""
-        import os
-
+    def test_cache_uses_default_ttl(self, sample_player_ids_df: pd.DataFrame) -> None:
+        """Test that cache uses the default TTL constant."""
         from fast_nfl_mcp.constants import DEFAULT_PLAYER_IDS_CACHE_TTL_SECONDS
 
-        # Ensure env var is not set
-        env = os.environ.copy()
-        env.pop("PLAYER_IDS_CACHE_TTL_SECONDS", None)
-        with patch.dict(os.environ, env, clear=True):
-            with (
-                patch("fast_nfl_mcp.schema_manager.nfl.import_ids") as mock_import,
-                patch(
-                    "fast_nfl_mcp.tools.reference.get_cached_dataframe"
-                ) as mock_get_cache,
-                patch(
-                    "fast_nfl_mcp.tools.reference.set_cached_dataframe"
-                ) as mock_set_cache,
-            ):
-                mock_import.return_value = sample_player_ids_df
-                mock_get_cache.return_value = None
-                mock_set_cache.return_value = True
+        with (
+            patch("fast_nfl_mcp.schema_manager.nfl.import_ids") as mock_import,
+            patch(
+                "fast_nfl_mcp.tools.reference.get_cached_dataframe"
+            ) as mock_get_cache,
+            patch(
+                "fast_nfl_mcp.tools.reference.set_cached_dataframe"
+            ) as mock_set_cache,
+        ):
+            mock_import.return_value = sample_player_ids_df
+            mock_get_cache.return_value = None
+            mock_set_cache.return_value = True
 
-                lookup_player_impl("Mahomes")
+            lookup_player_impl("Mahomes")
 
-                # Verify default TTL was used
-                call_args = mock_set_cache.call_args
-                assert call_args[0][2] == DEFAULT_PLAYER_IDS_CACHE_TTL_SECONDS
+            # Verify default TTL was used
+            call_args = mock_set_cache.call_args
+            assert call_args[0][2] == DEFAULT_PLAYER_IDS_CACHE_TTL_SECONDS
 
     def test_graceful_fallback_when_redis_unavailable(
         self, sample_player_ids_df: pd.DataFrame
