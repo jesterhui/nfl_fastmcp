@@ -14,12 +14,16 @@ from fast_nfl_mcp.models import (
     SuccessResponse,
     create_success_response,
 )
+from fast_nfl_mcp.tools.validation import normalize_filters
+from fast_nfl_mcp.utils import add_warnings_to_response
 
 
-def validate_seasons(
+def validate_ngs_seasons(
     seasons: list[int], max_seasons: int
 ) -> tuple[list[int], str | None]:
-    """Validate the seasons parameter with a specified limit.
+    """Validate the seasons parameter with a specified limit for NGS data.
+
+    NGS data is only available from 2016 onwards.
 
     Args:
         seasons: List of season years to validate.
@@ -62,30 +66,6 @@ def validate_seasons(
     return valid_seasons, warning
 
 
-def normalize_filters(
-    filters: dict[str, Any] | None,
-) -> dict[str, list[Any]]:
-    """Normalize filter values to lists.
-
-    Args:
-        filters: Dict mapping column names to filter values.
-                 Values can be single items or lists.
-
-    Returns:
-        Dict with all values normalized to lists.
-    """
-    if filters is None:
-        return {}
-
-    normalized: dict[str, list[Any]] = {}
-    for column, value in filters.items():
-        if isinstance(value, list):
-            normalized[column] = value
-        else:
-            normalized[column] = [value]
-    return normalized
-
-
 def get_ngs_passing_impl(
     seasons: list[int],
     columns: list[str] | None = None,
@@ -113,7 +93,7 @@ def get_ngs_passing_impl(
     warnings: list[str] = []
 
     # Validate seasons
-    valid_seasons, season_warning = validate_seasons(seasons, MAX_SEASONS_NGS)
+    valid_seasons, season_warning = validate_ngs_seasons(seasons, MAX_SEASONS_NGS)
     if season_warning:
         warnings.append(season_warning)
 
@@ -141,15 +121,7 @@ def get_ngs_passing_impl(
 
     # Add any validation warnings to the result
     if warnings and isinstance(result, SuccessResponse):
-        existing_warning = result.warning or ""
-        combined_warning = " ".join(filter(None, [existing_warning, *warnings]))
-        return create_success_response(
-            data=result.data,
-            total_available=result.metadata.total_available,
-            truncated=result.metadata.truncated,
-            columns=result.metadata.columns,
-            warning=combined_warning if combined_warning else None,
-        )
+        return add_warnings_to_response(result, warnings)
 
     return result
 
@@ -181,7 +153,7 @@ def get_ngs_rushing_impl(
     warnings: list[str] = []
 
     # Validate seasons
-    valid_seasons, season_warning = validate_seasons(seasons, MAX_SEASONS_NGS)
+    valid_seasons, season_warning = validate_ngs_seasons(seasons, MAX_SEASONS_NGS)
     if season_warning:
         warnings.append(season_warning)
 
@@ -209,15 +181,7 @@ def get_ngs_rushing_impl(
 
     # Add any validation warnings to the result
     if warnings and isinstance(result, SuccessResponse):
-        existing_warning = result.warning or ""
-        combined_warning = " ".join(filter(None, [existing_warning, *warnings]))
-        return create_success_response(
-            data=result.data,
-            total_available=result.metadata.total_available,
-            truncated=result.metadata.truncated,
-            columns=result.metadata.columns,
-            warning=combined_warning if combined_warning else None,
-        )
+        return add_warnings_to_response(result, warnings)
 
     return result
 
@@ -249,7 +213,7 @@ def get_ngs_receiving_impl(
     warnings: list[str] = []
 
     # Validate seasons
-    valid_seasons, season_warning = validate_seasons(seasons, MAX_SEASONS_NGS)
+    valid_seasons, season_warning = validate_ngs_seasons(seasons, MAX_SEASONS_NGS)
     if season_warning:
         warnings.append(season_warning)
 
@@ -277,14 +241,6 @@ def get_ngs_receiving_impl(
 
     # Add any validation warnings to the result
     if warnings and isinstance(result, SuccessResponse):
-        existing_warning = result.warning or ""
-        combined_warning = " ".join(filter(None, [existing_warning, *warnings]))
-        return create_success_response(
-            data=result.data,
-            total_available=result.metadata.total_available,
-            truncated=result.metadata.truncated,
-            columns=result.metadata.columns,
-            warning=combined_warning if combined_warning else None,
-        )
+        return add_warnings_to_response(result, warnings)
 
     return result

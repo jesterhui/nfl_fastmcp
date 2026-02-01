@@ -62,15 +62,17 @@ class TestListDatasets:
 
     def test_status_available_after_preload(self) -> None:
         """Test that status is 'available' after successful preload."""
+        from fast_nfl_mcp.types import DatasetDefinition
+
         mock_df = pd.DataFrame({"col1": [1, 2, 3]})
 
         with patch.dict(
             "fast_nfl_mcp.schema_manager.DATASET_DEFINITIONS",
             {
-                "test_dataset": (
-                    lambda _: mock_df,
-                    "Test description",
-                    True,
+                "test_dataset": DatasetDefinition(
+                    loader=lambda _: mock_df,
+                    description="Test description",
+                    supports_seasons=True,
                 ),
             },
             clear=True,
@@ -79,10 +81,10 @@ class TestListDatasets:
             with patch.dict(
                 "fast_nfl_mcp.tools.utilities.DATASET_DEFINITIONS",
                 {
-                    "test_dataset": (
-                        lambda _: mock_df,
-                        "Test description",
-                        True,
+                    "test_dataset": DatasetDefinition(
+                        loader=lambda _: mock_df,
+                        description="Test description",
+                        supports_seasons=True,
                     ),
                 },
                 clear=True,
@@ -96,6 +98,7 @@ class TestListDatasets:
 
     def test_status_unavailable_for_failed_datasets(self) -> None:
         """Test that status is 'unavailable' for failed datasets."""
+        from fast_nfl_mcp.types import DatasetDefinition
 
         def raise_error(_: object) -> pd.DataFrame:
             raise Exception("Network error")
@@ -103,10 +106,10 @@ class TestListDatasets:
         with patch.dict(
             "fast_nfl_mcp.schema_manager.DATASET_DEFINITIONS",
             {
-                "failing_dataset": (
-                    raise_error,
-                    "Will fail",
-                    True,
+                "failing_dataset": DatasetDefinition(
+                    loader=raise_error,
+                    description="Will fail",
+                    supports_seasons=True,
                 ),
             },
             clear=True,
@@ -114,10 +117,10 @@ class TestListDatasets:
             with patch.dict(
                 "fast_nfl_mcp.tools.utilities.DATASET_DEFINITIONS",
                 {
-                    "failing_dataset": (
-                        raise_error,
-                        "Will fail",
-                        True,
+                    "failing_dataset": DatasetDefinition(
+                        loader=raise_error,
+                        description="Will fail",
+                        supports_seasons=True,
                     ),
                 },
                 clear=True,
@@ -146,7 +149,7 @@ class TestListDatasets:
 
         for dataset in response.data:
             name = dataset["name"]
-            _, _, expected_supports_seasons = DATASET_DEFINITIONS[name]
+            expected_supports_seasons = DATASET_DEFINITIONS[name].supports_seasons
             assert dataset["supports_seasons"] == expected_supports_seasons
 
     def test_metadata_includes_columns(self) -> None:
@@ -363,15 +366,17 @@ class TestUtilitiesIntegration:
 
     def test_list_then_describe_workflow(self) -> None:
         """Test the typical workflow: list datasets, then describe one."""
+        from fast_nfl_mcp.types import DatasetDefinition
+
         mock_df = pd.DataFrame({"col1": [1, 2], "col2": ["a", "b"]})
 
         with patch.dict(
             "fast_nfl_mcp.schema_manager.DATASET_DEFINITIONS",
             {
-                "test_dataset": (
-                    lambda _: mock_df,
-                    "A test dataset",
-                    True,
+                "test_dataset": DatasetDefinition(
+                    loader=lambda _: mock_df,
+                    description="A test dataset",
+                    supports_seasons=True,
                 ),
             },
             clear=True,
@@ -379,10 +384,10 @@ class TestUtilitiesIntegration:
             with patch.dict(
                 "fast_nfl_mcp.tools.utilities.DATASET_DEFINITIONS",
                 {
-                    "test_dataset": (
-                        lambda _: mock_df,
-                        "A test dataset",
-                        True,
+                    "test_dataset": DatasetDefinition(
+                        loader=lambda _: mock_df,
+                        description="A test dataset",
+                        supports_seasons=True,
                     ),
                 },
                 clear=True,

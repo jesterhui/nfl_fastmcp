@@ -6,82 +6,15 @@ including game results, dates, and team matchups.
 
 from typing import Any
 
-from fast_nfl_mcp.constants import MAX_SEASONS_SCHEDULES, MIN_SEASON
+from fast_nfl_mcp.constants import MAX_SEASONS_SCHEDULES
 from fast_nfl_mcp.data_fetcher import DataFetcher
 from fast_nfl_mcp.models import (
     ErrorResponse,
     SuccessResponse,
     create_success_response,
 )
-
-
-def validate_seasons(
-    seasons: list[int], max_seasons: int
-) -> tuple[list[int], str | None]:
-    """Validate the seasons parameter with a specified limit.
-
-    Args:
-        seasons: List of season years to validate.
-        max_seasons: Maximum number of seasons allowed.
-
-    Returns:
-        A tuple of (valid_seasons, warning_message).
-        warning_message is None if all seasons are valid.
-    """
-    if not seasons:
-        return [], "No seasons provided. Please specify at least one season."
-
-    warnings: list[str] = []
-
-    # First filter out invalid seasons (before applying max limit)
-    valid_seasons = []
-    invalid_seasons = []
-    for season in seasons:
-        if season >= MIN_SEASON:
-            valid_seasons.append(season)
-        else:
-            invalid_seasons.append(season)
-
-    if invalid_seasons:
-        warnings.append(
-            f"Invalid seasons removed: {invalid_seasons}. "
-            f"Data is available from {MIN_SEASON} onwards."
-        )
-
-    # Then apply max_seasons limit to valid seasons only
-    if len(valid_seasons) > max_seasons:
-        warnings.append(
-            f"Too many seasons requested ({len(valid_seasons)} valid). "
-            f"Limited to {max_seasons} seasons: {valid_seasons[:max_seasons]}"
-        )
-        valid_seasons = valid_seasons[:max_seasons]
-
-    warning = " ".join(warnings) if warnings else None
-    return valid_seasons, warning
-
-
-def normalize_filters(
-    filters: dict[str, Any] | None,
-) -> dict[str, list[Any]]:
-    """Normalize filter values to lists.
-
-    Args:
-        filters: Dict mapping column names to filter values.
-                 Values can be single items or lists.
-
-    Returns:
-        Dict with all values normalized to lists.
-    """
-    if filters is None:
-        return {}
-
-    normalized: dict[str, list[Any]] = {}
-    for column, value in filters.items():
-        if isinstance(value, list):
-            normalized[column] = value
-        else:
-            normalized[column] = [value]
-    return normalized
+from fast_nfl_mcp.tools.validation import normalize_filters, validate_seasons
+from fast_nfl_mcp.utils import add_warnings_to_response
 
 
 def get_schedules_impl(
@@ -138,14 +71,6 @@ def get_schedules_impl(
 
     # Add any validation warnings to the result
     if warnings and isinstance(result, SuccessResponse):
-        existing_warning = result.warning or ""
-        combined_warning = " ".join(filter(None, [existing_warning, *warnings]))
-        return create_success_response(
-            data=result.data,
-            total_available=result.metadata.total_available,
-            truncated=result.metadata.truncated,
-            columns=result.metadata.columns,
-            warning=combined_warning if combined_warning else None,
-        )
+        return add_warnings_to_response(result, warnings)
 
     return result
