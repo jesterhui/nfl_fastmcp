@@ -257,7 +257,11 @@ def lookup_player_impl(
         # Convert numpy types to Python native types by converting to object dtype
         for col in available_cols:
             dtype = result_df[col].dtype
-            if (
+            # Convert datetime columns to strings
+            if pd.api.types.is_datetime64_any_dtype(dtype):
+                result_df[col] = result_df[col].astype(str)
+                result_df[col] = result_df[col].replace("NaT", None)
+            elif (
                 pd.api.types.is_integer_dtype(dtype)
                 or pd.api.types.is_float_dtype(dtype)
                 or pd.api.types.is_string_dtype(dtype)
