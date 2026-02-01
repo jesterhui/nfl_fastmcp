@@ -393,6 +393,208 @@ def _convert_dataframe_to_records(
     return cleaned_records, columns
 
 
+def _get_effective_limit(data_type: str, limit: int | None) -> int:
+    """Determine the effective row limit based on data type.
+
+    Args:
+        data_type: Type of data being fetched.
+        limit: User-specified limit, or None for default.
+
+    Returns:
+        The effective limit to apply, capped at max for the data type.
+    """
+    if data_type == "tracking":
+        default_limit = DEFAULT_MAX_ROWS_TRACKING
+        max_limit = MAX_ROWS_TRACKING
+    else:
+        default_limit = 50
+        max_limit = 100
+
+    effective_limit = limit if limit is not None else default_limit
+    return min(effective_limit, max_limit)
+
+
+def _load_bdb_dataframe(
+    data_type: str, week: int | None
+) -> tuple[pd.DataFrame | None, ErrorResponse | None]:
+    """Load a BDB DataFrame based on data type.
+
+    Args:
+        data_type: Type of data to fetch ('games', 'plays', 'players', 'tracking').
+        week: Week number (required for tracking data).
+
+    Returns:
+        A tuple of (DataFrame, None) on success, or (None, ErrorResponse) on error.
+    """
+    fetcher = get_fetcher()
+
+    if data_type == "games":
+        return fetcher.get_games(), None
+    elif data_type == "plays":
+        return fetcher.get_plays(), None
+    elif data_type == "players":
+        return fetcher.get_players(), None
+    elif data_type == "tracking":
+        if week is None:
+            return None, create_error_response(
+                error="week parameter is required for tracking data. "
+                f"Valid weeks are: {list(BDB_AVAILABLE_WEEKS)}"
+            )
+        return fetcher.get_tracking(week), None
+    else:
+        return None, create_error_response(
+            error=f"Unknown data type: '{data_type}'. "
+            "Valid types are: games, plays, players, tracking"
+        )
+
+
+def _apply_bdb_filters(
+    df: pd.DataFrame, filters: dict[str, list[Any]]
+) -> tuple[pd.DataFrame, list[str]]:
+    """Apply filters to a BDB DataFrame.
+
+    Args:
+        df: The DataFrame to filter.
+        filters: Dict mapping column names to lists of acceptable values.
+
+    Returns:
+        A tuple of (filtered DataFrame, list of invalid filter column names).
+    """
+    invalid_filter_cols: list[str] = []
+    for column, values in filters.items():
+        if column in df.columns:
+            df = df[df[column].isin(values)]
+        else:
+            invalid_filter_cols.append(column)
+    return df, invalid_filter_cols
+
+
+def _handle_empty_bdb_filter_results(
+    df: pd.DataFrame, invalid_filter_cols: list[str]
+) -> SuccessResponse:
+    """Create a response when BDB filters produce no matching rows.
+
+    Args:
+        df: The empty DataFrame (with column info preserved).
+        invalid_filter_cols: List of filter columns that didn't exist.
+
+    Returns:
+        A SuccessResponse indicating no data matched the filters.
+    """
+    filter_warning = "No data matched the specified filters."
+    if invalid_filter_cols:
+        filter_warning += (
+            f" Note: The following filter columns do not exist "
+            f"in the dataset and were ignored: {invalid_filter_cols}"
+        )
+    return create_success_response(
+        data=[],
+        total_available=0,
+        truncated=False,
+        columns=[str(col) for col in df.columns],
+        warning=filter_warning,
+    )
+
+
+def _validate_bdb_columns(
+    df: pd.DataFrame, columns: list[str]
+) -> tuple[pd.DataFrame | None, ErrorResponse | None]:
+    """Validate and select requested columns from a BDB DataFrame.
+
+    Args:
+        df: The DataFrame to select columns from.
+        columns: List of column names to select.
+
+    Returns:
+        A tuple of (filtered DataFrame, None) if valid columns exist,
+        or (None, ErrorResponse) if validation fails.
+    """
+    if not columns:
+        return None, create_error_response(
+            error="Empty columns list provided. "
+            "Please specify at least one column name."
+        )
+
+    available_cols = set(df.columns)
+    valid_cols = [c for c in columns if c in available_cols]
+    invalid_cols = [c for c in columns if c not in available_cols]
+
+    if not valid_cols:
+        return None, create_error_response(
+            error=f"None of the requested columns exist: {invalid_cols}. "
+            f"Available columns: {sorted(available_cols)}"
+        )
+
+    if invalid_cols:
+        logger.warning(f"Requested columns not found: {invalid_cols}")
+
+    return df[valid_cols], None
+
+
+def _paginate_bdb_dataframe(
+    df: pd.DataFrame, offset: int, limit: int
+) -> tuple[pd.DataFrame, int, bool]:
+    """Apply pagination to a BDB DataFrame.
+
+    Args:
+        df: The DataFrame to paginate.
+        offset: Number of rows to skip.
+        limit: Maximum number of rows to return.
+
+    Returns:
+        A tuple of (paginated DataFrame, total rows before pagination, was truncated).
+    """
+    total_available = len(df)
+
+    if offset > 0:
+        df = df.iloc[offset:]
+
+    rows_after_offset = len(df)
+    truncated = rows_after_offset > limit
+
+    if truncated:
+        df = df.head(limit)
+
+    return df, total_available, truncated
+
+
+def _build_bdb_warning_message(
+    invalid_filter_cols: list[str],
+    truncated: bool,
+    offset: int,
+    effective_limit: int,
+    total_available: int,
+) -> str | None:
+    """Build a warning message for BDB fetch results.
+
+    Args:
+        invalid_filter_cols: List of filter columns that didn't exist.
+        truncated: Whether results were truncated.
+        offset: The offset used for pagination.
+        effective_limit: The row limit applied.
+        total_available: Total rows before truncation.
+
+    Returns:
+        A warning message string, or None if no warnings.
+    """
+    warnings: list[str] = []
+
+    if invalid_filter_cols:
+        warnings.append(
+            f"The following filter columns do not exist in the dataset "
+            f"and were ignored: {invalid_filter_cols}"
+        )
+
+    if truncated:
+        next_offset = offset + effective_limit
+        warnings.append(
+            f"Results truncated. Showing {effective_limit} of {total_available} total rows "
+            f"(offset: {offset}). Use offset={next_offset} to get the next page."
+        )
+
+    return " ".join(warnings) if warnings else None
+
+
 def fetch_bdb_data(
     data_type: str,
     week: int | None = None,
@@ -414,43 +616,17 @@ def fetch_bdb_data(
     Returns:
         SuccessResponse with data and metadata, or ErrorResponse on error.
     """
-    if filters is None:
-        filters = {}
-
-    # Determine default and max limits
-    if data_type == "tracking":
-        default_limit = DEFAULT_MAX_ROWS_TRACKING
-        max_limit = MAX_ROWS_TRACKING
-    else:
-        default_limit = 50
-        max_limit = 100
-
-    effective_limit = limit if limit is not None else default_limit
-    if effective_limit > max_limit:
-        effective_limit = max_limit
+    # Initialize defaults
+    filters = filters or {}
+    effective_limit = _get_effective_limit(data_type, limit)
 
     try:
-        fetcher = get_fetcher()
+        # Phase 1: Load data
+        df, error = _load_bdb_dataframe(data_type, week)
+        if error:
+            return error
 
-        if data_type == "games":
-            df = fetcher.get_games()
-        elif data_type == "plays":
-            df = fetcher.get_plays()
-        elif data_type == "players":
-            df = fetcher.get_players()
-        elif data_type == "tracking":
-            if week is None:
-                return create_error_response(
-                    error="week parameter is required for tracking data. "
-                    f"Valid weeks are: {list(BDB_AVAILABLE_WEEKS)}"
-                )
-            df = fetcher.get_tracking(week)
-        else:
-            return create_error_response(
-                error=f"Unknown data type: '{data_type}'. "
-                "Valid types are: games, plays, players, tracking"
-            )
-
+        # Phase 2: Handle empty data
         if df is None or df.empty:
             return create_success_response(
                 data=[],
@@ -460,80 +636,31 @@ def fetch_bdb_data(
                 warning=f"No data found for {data_type}.",
             )
 
-        # Apply filters
+        # Phase 3: Apply filters
         invalid_filter_cols: list[str] = []
-        for column, values in filters.items():
-            if column in df.columns:
-                df = df[df[column].isin(values)]
-            else:
-                invalid_filter_cols.append(column)
+        if filters:
+            df, invalid_filter_cols = _apply_bdb_filters(df, filters)
+            if df.empty:
+                return _handle_empty_bdb_filter_results(df, invalid_filter_cols)
 
-        if df.empty:
-            filter_warning = "No data matched the specified filters."
-            if invalid_filter_cols:
-                filter_warning += (
-                    f" Note: The following filter columns do not exist "
-                    f"in the dataset and were ignored: {invalid_filter_cols}"
-                )
-            return create_success_response(
-                data=[],
-                total_available=0,
-                truncated=False,
-                columns=[str(col) for col in df.columns],
-                warning=filter_warning,
-            )
-
-        # Select specific columns if requested
+        # Phase 4: Select columns
         if columns is not None:
-            if not columns:
-                return create_error_response(
-                    error="Empty columns list provided. "
-                    "Please specify at least one column name."
-                )
-            available_cols = set(df.columns)
-            valid_cols = [c for c in columns if c in available_cols]
-            invalid_cols = [c for c in columns if c not in available_cols]
-            if not valid_cols:
-                return create_error_response(
-                    error=f"None of the requested columns exist: {invalid_cols}. "
-                    f"Available columns: {sorted(available_cols)}"
-                )
-            df = df[valid_cols]
-            if invalid_cols:
-                logger.warning(f"Requested columns not found: {invalid_cols}")
+            selected_df, error = _validate_bdb_columns(df, columns)
+            if error:
+                return error
+            assert selected_df is not None  # Guaranteed by _validate_bdb_columns
+            df = selected_df
 
-        # Get total count before pagination
-        total_available = len(df)
+        # Phase 5: Paginate
+        df, total_available, truncated = _paginate_bdb_dataframe(
+            df, offset, effective_limit
+        )
 
-        # Apply offset
-        if offset > 0:
-            df = df.iloc[offset:]
-
-        # Check if results will be truncated
-        rows_after_offset = len(df)
-        truncated = rows_after_offset > effective_limit
-
-        # Apply limit
-        if truncated:
-            df = df.head(effective_limit)
-
-        # Convert to records
+        # Phase 6: Build response
         records, columns_list = _convert_dataframe_to_records(df)
-
-        # Build warning message
-        warnings: list[str] = []
-        if invalid_filter_cols:
-            warnings.append(
-                f"The following filter columns do not exist in the dataset "
-                f"and were ignored: {invalid_filter_cols}"
-            )
-        if truncated:
-            next_offset = offset + effective_limit
-            warnings.append(
-                f"Results truncated. Showing {effective_limit} of {total_available} total rows "
-                f"(offset: {offset}). Use offset={next_offset} to get the next page."
-            )
-        warning = " ".join(warnings) if warnings else None
+        warning = _build_bdb_warning_message(
+            invalid_filter_cols, truncated, offset, effective_limit, total_available
+        )
 
         return create_success_response(
             data=records,
