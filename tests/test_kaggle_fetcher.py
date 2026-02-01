@@ -158,6 +158,44 @@ class TestKaggleFetcherDownload:
             mock_kagglehub.competition_download.assert_called_once()
 
 
+class TestKaggleFetcherFindDataSubdir:
+    """Tests for KaggleFetcher._find_data_subdir method."""
+
+    def test_returns_root_when_csv_files_present(self, tmp_path: Path) -> None:
+        """Test that root is returned when it contains CSV files."""
+        fetcher = KaggleFetcher()
+
+        # Create CSV at root and a subdirectory
+        (tmp_path / "data.csv").write_text("col1\n1")
+        (tmp_path / "train").mkdir()
+
+        result = fetcher._find_data_subdir(tmp_path)
+        assert result == tmp_path
+
+    def test_descends_when_no_csv_at_root(self, tmp_path: Path) -> None:
+        """Test that it descends into sole subdirectory when root has no CSVs."""
+        fetcher = KaggleFetcher()
+
+        # Create subdirectory with CSV but no CSV at root
+        subdir = tmp_path / "competition_data"
+        subdir.mkdir()
+        (subdir / "data.csv").write_text("col1\n1")
+
+        result = fetcher._find_data_subdir(tmp_path)
+        assert result == subdir
+
+    def test_returns_root_when_multiple_subdirs(self, tmp_path: Path) -> None:
+        """Test that root is returned when there are multiple subdirectories."""
+        fetcher = KaggleFetcher()
+
+        # Create multiple subdirectories, no CSV at root
+        (tmp_path / "dir1").mkdir()
+        (tmp_path / "dir2").mkdir()
+
+        result = fetcher._find_data_subdir(tmp_path)
+        assert result == tmp_path
+
+
 class TestKaggleFetcherLoadCsv:
     """Tests for KaggleFetcher CSV loading."""
 

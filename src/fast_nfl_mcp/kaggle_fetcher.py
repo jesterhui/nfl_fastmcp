@@ -151,7 +151,12 @@ class KaggleFetcher:
         Returns:
             The path to the actual data directory.
         """
-        # Check if there's a subdirectory containing the data
+        # If root has CSV files, use it directly (don't descend into train/ etc.)
+        root_csvs = list(data_path.glob("*.csv"))
+        if root_csvs:
+            return data_path
+
+        # Only descend into subdirectory if root has no CSV files
         subdirs = [d for d in data_path.iterdir() if d.is_dir()]
         if len(subdirs) == 1:
             return subdirs[0]
