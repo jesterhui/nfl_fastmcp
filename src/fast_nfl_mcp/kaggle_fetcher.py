@@ -64,19 +64,20 @@ class KaggleFetcher:
     def _check_auth(self) -> None:
         """Check if Kaggle authentication is configured.
 
+        This method re-checks the filesystem if authentication previously failed,
+        allowing users to add credentials without restarting the server. When
+        auth is already valid, it returns immediately without rechecking.
+
         Raises:
             KaggleAuthError: If neither ~/.kaggle/kaggle.json nor
                 ~/.kaggle/access_token is found.
         """
-        if self._auth_checked:
-            if not self._auth_valid:
-                raise KaggleAuthError(
-                    "Kaggle authentication not configured. "
-                    "Please create ~/.kaggle/kaggle.json or ~/.kaggle/access_token. "
-                    "Get your API token from: https://www.kaggle.com/settings"
-                )
+        # If auth was previously successful, skip the filesystem check
+        if self._auth_checked and self._auth_valid:
             return
 
+        # Always re-check filesystem when auth was invalid or never checked
+        # This allows credentials to be added after initial failure
         kaggle_dir = Path.home() / ".kaggle"
         kaggle_json = kaggle_dir / "kaggle.json"
         access_token = kaggle_dir / "access_token"
@@ -303,6 +304,22 @@ class KaggleFetcher:
         """Clear the in-memory DataFrame cache."""
         self._cache.clear()
         logger.info("Cleared KaggleFetcher cache")
+
+    def reset_auth(self) -> None:
+        """Reset the authentication state to force re-checking credentials.
+
+        This method clears the cached auth state and data path, allowing the
+        fetcher to re-check for credentials on the next request. Useful when
+        credentials have been added or updated.
+
+        Note: The _check_auth() method automatically re-checks on failed auth,
+        so this method is primarily useful for forcing a re-check after updating
+        valid credentials, or for testing purposes.
+        """
+        self._auth_checked = False
+        self._auth_valid = False
+        self._data_path = None
+        logger.info("Reset KaggleFetcher authentication state")
 
 
 # Module-level singleton instance

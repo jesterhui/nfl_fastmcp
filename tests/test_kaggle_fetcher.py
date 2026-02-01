@@ -67,14 +67,36 @@ class TestKaggleFetcherAuth:
             fetcher._check_auth()
             assert fetcher._auth_valid is True
 
-    def test_auth_cached_invalid(self) -> None:
-        """Test that cached invalid auth raises error without rechecking."""
+    def test_auth_rechecks_after_failure(self, tmp_path: Path) -> None:
+        """Test that auth re-checks filesystem after previous failure.
+
+        This is the key behavior change - when auth previously failed, the next
+        call should re-check the filesystem to allow credentials to be added
+        without restarting the server.
+        """
         fetcher = KaggleFetcher()
         fetcher._auth_checked = True
         fetcher._auth_valid = False
 
-        with pytest.raises(KaggleAuthError):
+        # Create valid credentials
+        kaggle_dir = tmp_path / ".kaggle"
+        kaggle_dir.mkdir()
+        (kaggle_dir / "kaggle.json").write_text('{"username": "test"}')
+
+        with patch.object(Path, "home", return_value=tmp_path):
+            # Should re-check and succeed now
             fetcher._check_auth()
+            assert fetcher._auth_valid is True
+
+    def test_auth_rechecks_failure_still_fails(self, tmp_path: Path) -> None:
+        """Test that auth re-check still fails if no credentials exist."""
+        fetcher = KaggleFetcher()
+        fetcher._auth_checked = True
+        fetcher._auth_valid = False
+
+        with patch.object(Path, "home", return_value=tmp_path):
+            with pytest.raises(KaggleAuthError):
+                fetcher._check_auth()
 
     def test_auth_cached_valid(self) -> None:
         """Test that cached valid auth passes without rechecking."""
@@ -84,6 +106,19 @@ class TestKaggleFetcherAuth:
 
         # Should not raise
         fetcher._check_auth()
+
+    def test_reset_auth(self) -> None:
+        """Test that reset_auth clears auth state."""
+        fetcher = KaggleFetcher()
+        fetcher._auth_checked = True
+        fetcher._auth_valid = True
+        fetcher._data_path = Path("/some/path")
+
+        fetcher.reset_auth()
+
+        assert fetcher._auth_checked is False
+        assert fetcher._auth_valid is False
+        assert fetcher._data_path is None
 
 
 class TestKaggleFetcherDownload:
@@ -537,17 +572,20 @@ class TestFetchBdbData:
         assert isinstance(result, ErrorResponse)
         assert "Empty columns list" in result.error
 
-    def test_fetch_auth_error(self) -> None:
-        """Test that auth error is properly returned."""
+    def test_fetch_auth_error(self, tmp_path: Path) -> None:
+        """Test that auth error is properly returned when no credentials exist."""
         import fast_nfl_mcp.kaggle_fetcher as module
 
-        # Create fetcher with auth failure
+        # Create fetcher with auth failure state
         fetcher = KaggleFetcher()
         fetcher._auth_checked = True
         fetcher._auth_valid = False
         module._fetcher = fetcher
 
-        result = fetch_bdb_data("games")
+        # Mock Path.home to point to temp dir without credentials
+        # This ensures the re-check still fails
+        with patch.object(Path, "home", return_value=tmp_path):
+            result = fetch_bdb_data("games")
 
         assert isinstance(result, ErrorResponse)
         assert "authentication" in result.error.lower()
