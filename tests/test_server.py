@@ -1,10 +1,10 @@
 """Tests for the FastMCP server initialization.
 
 This module tests the server initialization, lifespan management,
-and MCP tool registration using mocked dependencies.
+MCP tool registration, and CLI argument parsing using mocked dependencies.
 """
 
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import pandas as pd
 import pytest
@@ -215,3 +215,88 @@ class TestMCPToolFunctions:
         ):
             response = describe_dataset_impl(preloaded_manager, "test_dataset")
             assert response.success is True
+
+
+class TestServerCLI:
+    """Tests for server CLI argument parsing and transport selection."""
+
+    def test_default_stdio_transport(self) -> None:
+        """Test that default (no args) uses stdio transport."""
+        mock_run = MagicMock()
+
+        with patch.object(mcp, "run", mock_run):
+            with patch("sys.argv", ["fast-nfl-mcp"]):
+                main()
+
+        mock_run.assert_called_once_with()
+
+    def test_sse_transport_default_port(self) -> None:
+        """Test that --sse flag uses SSE transport with default port."""
+        mock_run = MagicMock()
+
+        with patch.object(mcp, "run", mock_run):
+            with patch("sys.argv", ["fast-nfl-mcp", "--sse"]):
+                main()
+
+        mock_run.assert_called_once_with(transport="sse", host="0.0.0.0", port=8000)
+
+    def test_sse_transport_custom_port(self) -> None:
+        """Test that --sse with --port uses SSE transport with custom port."""
+        mock_run = MagicMock()
+
+        with patch.object(mcp, "run", mock_run):
+            with patch("sys.argv", ["fast-nfl-mcp", "--sse", "--port", "3000"]):
+                main()
+
+        mock_run.assert_called_once_with(transport="sse", host="0.0.0.0", port=3000)
+
+    def test_http_transport_default_port(self) -> None:
+        """Test that --http flag uses HTTP transport with default port."""
+        mock_run = MagicMock()
+
+        with patch.object(mcp, "run", mock_run):
+            with patch("sys.argv", ["fast-nfl-mcp", "--http"]):
+                main()
+
+        mock_run.assert_called_once_with(transport="http", host="0.0.0.0", port=8000)
+
+    def test_http_transport_custom_port(self) -> None:
+        """Test that --http with --port uses HTTP transport with custom port."""
+        mock_run = MagicMock()
+
+        with patch.object(mcp, "run", mock_run):
+            with patch("sys.argv", ["fast-nfl-mcp", "--http", "--port", "9000"]):
+                main()
+
+        mock_run.assert_called_once_with(transport="http", host="0.0.0.0", port=9000)
+
+    def test_custom_host(self) -> None:
+        """Test that --host flag sets custom host."""
+        mock_run = MagicMock()
+
+        with patch.object(mcp, "run", mock_run):
+            with patch("sys.argv", ["fast-nfl-mcp", "--sse", "--host", "127.0.0.1"]):
+                main()
+
+        mock_run.assert_called_once_with(transport="sse", host="127.0.0.1", port=8000)
+
+    def test_custom_host_and_port(self) -> None:
+        """Test that both --host and --port can be customized."""
+        mock_run = MagicMock()
+
+        with patch.object(mcp, "run", mock_run):
+            with patch(
+                "sys.argv",
+                ["fast-nfl-mcp", "--http", "--host", "localhost", "--port", "5000"],
+            ):
+                main()
+
+        mock_run.assert_called_once_with(transport="http", host="localhost", port=5000)
+
+    def test_sse_and_http_mutually_exclusive(self) -> None:
+        """Test that --sse and --http are mutually exclusive."""
+        with patch("sys.argv", ["fast-nfl-mcp", "--sse", "--http"]):
+            with pytest.raises(SystemExit) as exc_info:
+                main()
+            # argparse exits with code 2 for argument errors
+            assert exc_info.value.code == 2

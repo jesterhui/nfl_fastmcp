@@ -20,6 +20,10 @@ MAX_SEASONS_SEASONAL: int = 10
 # Maximum seasons for Next Gen Stats tools
 MAX_SEASONS_NGS: int = 5
 
+# Maximum seasons for schedules and draft picks
+MAX_SEASONS_SCHEDULES: int = 10
+MAX_SEASONS_DRAFT: int = 20
+
 # Earliest season with Next Gen Stats data (NGS tracking started in 2016)
 MIN_SEASON_NGS: int = 2016
 
