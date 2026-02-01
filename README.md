@@ -28,7 +28,7 @@ A Model Context Protocol (MCP) server that exposes comprehensive NFL data from t
 
 ## Quick Start
 
-### Option 1: Docker (Recommended for Production)
+### Option 1: Docker (Recommended)
 
 ```bash
 # Clone the repository
@@ -39,7 +39,7 @@ cd fast-nfl-mcp
 docker-compose up --build -d
 
 # Verify it's running
-curl http://localhost:8000/health
+docker-compose logs fast-nfl-mcp
 ```
 
 The server runs on port 8000 with SSE transport and includes:
@@ -111,7 +111,9 @@ Add to `~/.claude/settings.json`:
 
 ### Docker Configuration (SSE Mode)
 
-If running via Docker Compose, use SSE transport:
+If running via Docker Compose, use SSE transport.
+
+**Important:** The Docker server must be running before starting Claude Code.
 
 ```json
 {
@@ -195,58 +197,8 @@ Once configured, ask your AI assistant questions like:
 
 ### Big Data Bowl Queries
 
-- "Get the tracking data for a specific play in the Chiefs vs Bills game"
-- "Show me Patrick Mahomes' movement patterns on a pass play"
-- "Find plays where the receiver had separation of more than 3 yards"
-
-## Tool Usage Patterns
-
-### Discovering Available Data
-
-```
-# List all datasets
-list_datasets()
-
-# Get schema for a specific dataset
-describe_dataset("play_by_play")
-```
-
-### Querying Play-by-Play Data
-
-```
-# Get passing plays with EPA for a specific team
-get_play_by_play(
-    seasons=[2024],
-    columns=["play_id", "desc", "epa", "yards_gained"],
-    filters={"posteam": "KC", "play_type": "pass"}
-)
-```
-
-### Looking Up Players
-
-```
-# Find a player's ID
-lookup_player("Patrick Mahomes")
-
-# Use the ID to get their stats
-get_seasonal_stats(
-    seasons=[2024],
-    columns=["player_id", "passing_yards", "passing_tds"],
-    filters={"player_id": "00-0033873"}
-)
-```
-
-### Pagination
-
-For large result sets, use `offset` and `limit`:
-
-```
-# Get first 100 results
-get_play_by_play([2024], ["play_id", "desc"], limit=100)
-
-# Get next 100 results
-get_play_by_play([2024], ["play_id", "desc"], offset=100, limit=100)
-```
+- "Show me tracking data for play 123 in game 2023090700"
+- "Get player positions on a specific passing play"
 
 ## Kaggle Setup for Big Data Bowl
 
@@ -257,13 +209,13 @@ To access Big Data Bowl tracking data, you need Kaggle authentication:
 2. Generate an API token:
    - Go to Account Settings > API
    - Click "Create New Token"
-   - Save the downloaded `kaggle.json` file
+   - Save the downloaded token
 
 3. Set up credentials:
    ```bash
    mkdir -p ~/.kaggle
-   mv ~/Downloads/kaggle.json ~/.kaggle/
-   chmod 600 ~/.kaggle/kaggle.json
+   # Copy your token to ~/.kaggle/access_token
+   chmod 600 ~/.kaggle/access_token
    ```
 
 4. Accept competition rules at:
@@ -296,12 +248,6 @@ uv run pytest --cov
 
 # Verbose output
 uv run pytest -v
-```
-
-When working in a git worktree, use `PYTHONPATH=src` to ensure local code is used:
-
-```bash
-PYTHONPATH=src uv run pytest tests/ -v
 ```
 
 ### Code Quality
@@ -359,16 +305,6 @@ src/fast_nfl_mcp/
 | Draft picks seasons | 20 per request |
 | Data availability | 1999 onwards |
 | Big Data Bowl tracking rows | 100 max (50 default) |
-
-## Contributing
-
-Contributions are welcome! Please:
-
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes with tests
-4. Ensure all tests pass and code quality checks succeed
-5. Submit a pull request
 
 ## License
 
