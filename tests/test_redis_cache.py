@@ -6,12 +6,15 @@ including connection handling, DataFrame caching, and graceful fallback.
 
 import os
 import pickle
+import time
 from unittest.mock import MagicMock, patch
 
 import pandas as pd
 import pytest
 
+import fast_nfl_mcp.redis_cache as redis_cache_module
 from fast_nfl_mcp.redis_cache import (
+    CONNECTION_RETRY_COOLDOWN_SECONDS,
     PLAYER_IDS_CACHE_KEY,
     get_cached_dataframe,
     invalidate_cache,
@@ -62,43 +65,60 @@ class TestRedisConnection:
             # Should only call from_url once (connection is reused)
             mock_from_url.assert_called_once()
 
-    def test_connection_retries_on_failure(self) -> None:
-        """Test that connection retries with tenacity on failure."""
+    def test_connection_failure_cached_with_cooldown(self) -> None:
+        """Test that connection failure is cached and not retried immediately."""
         with patch("redis.from_url") as mock_from_url:
             mock_from_url.side_effect = Exception("Connection refused")
 
-            # This should retry 3 times before giving up
-            result = is_redis_available()
+            # First call - attempts connection
+            result1 = is_redis_available()
+            assert result1 is False
+            assert mock_from_url.call_count == 1
 
-            assert result is False
-            # tenacity retries 3 times
-            assert mock_from_url.call_count == 3
+            # Second call within cooldown - should skip connection attempt
+            result2 = is_redis_available()
+            assert result2 is False
+            assert mock_from_url.call_count == 1  # No additional attempt
 
-    def test_reconnects_when_connection_lost(self) -> None:
-        """Test that reconnection is attempted when existing connection is lost."""
-        mock_client = MagicMock()
-        # First ping succeeds, second fails (connection lost), then reconnect succeeds
-        mock_client.ping.side_effect = [True, Exception("Connection lost"), True]
+    def test_connection_retried_after_cooldown(self) -> None:
+        """Test that connection is retried after cooldown period expires."""
+        # Manually manipulate the module's failure tracking state
+        with patch("redis.from_url") as mock_from_url:
+            mock_from_url.side_effect = Exception("Connection refused")
 
-        new_mock_client = MagicMock()
-        new_mock_client.ping.return_value = True
+            # First call - attempts connection, fails
+            is_redis_available()
+            assert mock_from_url.call_count == 1
 
-        call_count = 0
+            # Second call within cooldown - should skip
+            # (failure was just recorded, cooldown hasn't expired)
+            is_redis_available()
+            assert mock_from_url.call_count == 1  # No retry yet
 
-        def mock_from_url_side_effect(*args: object, **kwargs: object) -> MagicMock:
-            nonlocal call_count
-            call_count += 1
-            if call_count == 1:
-                return mock_client
-            return new_mock_client
+            # Manually expire the cooldown by setting last_failure_time to past
+            redis_cache_module._last_failure_time = (
+                time.monotonic() - CONNECTION_RETRY_COOLDOWN_SECONDS - 1
+            )
 
-        with patch("redis.from_url", side_effect=mock_from_url_side_effect):
-            # First call - establishes connection
-            assert is_redis_available() is True
+            # Third call after cooldown expires
+            is_redis_available()
+            assert mock_from_url.call_count == 2  # Retry occurred
 
-            # Second call - ping fails, triggers reconnection
-            reset_redis_connection()  # Simulate lost connection
-            assert is_redis_available() is True
+    def test_import_error_permanently_disables_redis(self) -> None:
+        """Test that ImportError permanently disables Redis (no retries ever)."""
+        with patch.dict("sys.modules", {"redis": None}):
+            with patch("builtins.__import__", side_effect=ImportError("No module")):
+                # First call - import fails
+                result1 = is_redis_available()
+                assert result1 is False
+
+                # Reset time tracking to simulate cooldown passed
+                # (but shouldn't matter for ImportError)
+                with patch(
+                    "fast_nfl_mcp.redis_cache.time.monotonic", return_value=1000.0
+                ):
+                    result2 = is_redis_available()
+                    assert result2 is False
 
     def test_redis_url_from_environment(self) -> None:
         """Test that Redis URL is read from environment variable."""
@@ -146,6 +166,22 @@ class TestRedisConnection:
             reset_redis_connection()
             is_redis_available()
             assert mock_from_url.call_count == 2
+
+    def test_connection_lost_triggers_cooldown(self) -> None:
+        """Test that connection loss triggers cooldown before reconnection."""
+        mock_client = MagicMock()
+        # First ping succeeds, second fails (connection lost)
+        mock_client.ping.side_effect = [True, Exception("Connection lost")]
+
+        with patch("redis.from_url", return_value=mock_client) as mock_from_url:
+            # First call - establishes connection
+            assert is_redis_available() is True
+            assert mock_from_url.call_count == 1
+
+            # Second call - ping fails, enters cooldown
+            assert is_redis_available() is False
+            # No reconnection attempt due to cooldown
+            assert mock_from_url.call_count == 1
 
 
 class TestDataFrameCachingWithMockedRedis:
@@ -281,6 +317,10 @@ class TestCacheKeyConstants:
         """Test that player_ids cache key is properly defined."""
         assert PLAYER_IDS_CACHE_KEY == "fast_nfl_mcp:player_ids"
 
+    def test_cooldown_constant(self) -> None:
+        """Test that cooldown constant is properly defined."""
+        assert CONNECTION_RETRY_COOLDOWN_SECONDS == 30
+
 
 class TestGracefulDegradation:
     """Tests for graceful degradation when Redis is unavailable."""
@@ -330,3 +370,24 @@ class TestGracefulDegradation:
         with patch("redis.from_url", return_value=mock_client):
             result = invalidate_cache("test_key")
             assert result is False
+
+    def test_no_blocking_on_repeated_failures(self) -> None:
+        """Test that repeated calls don't block when Redis is down."""
+        with patch("redis.from_url") as mock_from_url:
+            mock_from_url.side_effect = Exception("Connection refused")
+
+            # Record start time
+            start = time.time()
+
+            # Make multiple calls
+            for _ in range(10):
+                is_redis_available()
+                get_cached_dataframe("test")
+                set_cached_dataframe("test", pd.DataFrame(), 3600)
+
+            # Should complete quickly (only 1 connection attempt due to cooldown)
+            elapsed = time.time() - start
+            assert elapsed < 1.0  # Should be nearly instant
+
+            # Only one connection attempt should have been made
+            assert mock_from_url.call_count == 1

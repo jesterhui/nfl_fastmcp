@@ -2,27 +2,31 @@
 
 This module provides Redis-based caching for expensive data operations,
 specifically the player_ids dataset used by lookup_player. The cache
-supports configurable TTL and automatic retry with backoff when Redis
-is temporarily unavailable.
+supports configurable TTL and graceful degradation when Redis is unavailable.
+
+Connection failures are cached with a cooldown period to avoid blocking
+every request when Redis is known to be down.
 """
 
 import logging
 import os
 import pickle
+import time
 from typing import Any
 
 import pandas as pd
-from tenacity import (
-    retry,
-    retry_if_exception_type,
-    stop_after_attempt,
-    wait_exponential,
-)
 
 logger = logging.getLogger(__name__)
 
 # Redis connection instance (lazy initialization)
 _redis_client: Any = None
+
+# Connection failure tracking
+_last_failure_time: float = 0.0
+_redis_permanently_unavailable: bool = False
+
+# Cooldown period before retrying after a connection failure (seconds)
+CONNECTION_RETRY_COOLDOWN_SECONDS: int = 30
 
 # Cache key constants
 PLAYER_IDS_CACHE_KEY = "fast_nfl_mcp:player_ids"
@@ -37,29 +41,49 @@ def _get_redis_url() -> str:
     return os.environ.get("REDIS_URL", "redis://localhost:6379")
 
 
-class RedisConnectionError(Exception):
-    """Raised when Redis connection fails."""
+def _should_skip_connection_attempt() -> bool:
+    """Check if we should skip attempting to connect to Redis.
 
-    pass
-
-
-@retry(
-    retry=retry_if_exception_type(RedisConnectionError),
-    stop=stop_after_attempt(3),
-    wait=wait_exponential(multiplier=1, min=2, max=30),
-    reraise=True,
-)
-def _connect_to_redis() -> Any:
-    """Attempt to connect to Redis with retry logic.
-
-    Uses tenacity to retry connection attempts with exponential backoff.
-    Retries up to 3 times with waits of 2s, 4s, 8s between attempts.
+    Returns True if:
+    - Redis is permanently unavailable (e.g., package not installed)
+    - We're within the cooldown period after a recent failure
 
     Returns:
-        The connected Redis client.
+        True if connection attempt should be skipped, False otherwise.
+    """
+    global _last_failure_time, _redis_permanently_unavailable
 
-    Raises:
-        RedisConnectionError: If connection fails after all retries.
+    if _redis_permanently_unavailable:
+        return True
+
+    if _last_failure_time > 0:
+        elapsed = time.monotonic() - _last_failure_time
+        if elapsed < CONNECTION_RETRY_COOLDOWN_SECONDS:
+            return True
+
+    return False
+
+
+def _record_connection_failure(permanent: bool = False) -> None:
+    """Record a connection failure for cooldown tracking.
+
+    Args:
+        permanent: If True, mark Redis as permanently unavailable
+                   (e.g., package not installed).
+    """
+    global _last_failure_time, _redis_permanently_unavailable
+
+    if permanent:
+        _redis_permanently_unavailable = True
+    else:
+        _last_failure_time = time.monotonic()
+
+
+def _try_connect() -> Any:
+    """Attempt to connect to Redis once.
+
+    Returns:
+        The connected Redis client, or None if connection failed.
     """
     try:
         import redis
@@ -77,18 +101,26 @@ def _connect_to_redis() -> Any:
         logger.info("Redis connection established")
         return client
     except ImportError:
-        logger.warning("redis package not installed, caching disabled")
-        raise RedisConnectionError("redis package not installed") from None
+        logger.warning("redis package not installed, caching permanently disabled")
+        _record_connection_failure(permanent=True)
+        return None
     except Exception as e:
-        logger.warning(f"Redis connection attempt failed: {e}")
-        raise RedisConnectionError(str(e)) from e
+        logger.warning(
+            f"Redis connection failed: {e}. "
+            f"Will retry in {CONNECTION_RETRY_COOLDOWN_SECONDS}s."
+        )
+        _record_connection_failure(permanent=False)
+        return None
 
 
 def _get_redis_client() -> Any:
     """Get or create the Redis client connection.
 
+    If Redis is known to be unavailable (recent failure or package missing),
+    returns None immediately without blocking.
+
     Returns:
-        The Redis client instance, or None if connection failed.
+        The Redis client instance, or None if connection failed/unavailable.
     """
     global _redis_client
 
@@ -98,16 +130,18 @@ def _get_redis_client() -> Any:
             _redis_client.ping()
             return _redis_client
         except Exception:
-            logger.warning("Redis connection lost, attempting to reconnect")
+            logger.warning("Redis connection lost, will retry on next request")
             _redis_client = None
+            _record_connection_failure(permanent=False)
+            return None
 
-    # Attempt to connect with retry
-    try:
-        _redis_client = _connect_to_redis()
-        return _redis_client
-    except RedisConnectionError as e:
-        logger.warning(f"Redis connection failed after retries: {e}")
+    # Skip connection attempt if within cooldown or permanently unavailable
+    if _should_skip_connection_attempt():
         return None
+
+    # Attempt to connect (single attempt, no retries)
+    _redis_client = _try_connect()
+    return _redis_client
 
 
 def is_redis_available() -> bool:
@@ -202,5 +236,7 @@ def reset_redis_connection() -> None:
 
     This allows re-attempting a connection after a previous failure.
     """
-    global _redis_client
+    global _redis_client, _last_failure_time, _redis_permanently_unavailable
     _redis_client = None
+    _last_failure_time = 0.0
+    _redis_permanently_unavailable = False
