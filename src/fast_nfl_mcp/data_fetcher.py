@@ -10,7 +10,7 @@ from typing import Any
 
 import pandas as pd
 
-from fast_nfl_mcp.constants import DEFAULT_MAX_ROWS
+from fast_nfl_mcp.constants import DEFAULT_MAX_ROWS, get_current_season_year
 from fast_nfl_mcp.models import (
     ErrorResponse,
     SuccessResponse,
@@ -70,16 +70,14 @@ class DataFetcher:
         else:
             self._max_rows = self.MAX_ROWS
 
-    def _get_dataset_loader(
-        self, dataset: str
-    ) -> tuple[Any, str, bool, int | None] | None:
+    def _get_dataset_loader(self, dataset: str) -> tuple[Any, str, bool] | None:
         """Get the loader function and metadata for a dataset.
 
         Args:
             dataset: The name of the dataset to fetch.
 
         Returns:
-            A tuple of (loader_function, description, supports_seasons, default_season)
+            A tuple of (loader_function, description, supports_seasons)
             or None if the dataset is not found.
         """
         return DATASET_DEFINITIONS.get(dataset)
@@ -87,14 +85,12 @@ class DataFetcher:
     def _build_params_for_loader(
         self,
         supports_seasons: bool,
-        default_season: int | None,
         params: dict[str, Any],
     ) -> Any:
         """Build the parameter to pass to the loader function.
 
         Args:
             supports_seasons: Whether the dataset supports season filtering.
-            default_season: The default season to use if none provided.
             params: User-provided parameters.
 
         Returns:
@@ -104,9 +100,8 @@ class DataFetcher:
             # Extract seasons from params, use default if not provided
             seasons = params.get("seasons")
             if seasons is None:
-                if default_season is not None:
-                    return [default_season]
-                return None
+                # Use the current season as the default
+                return [get_current_season_year()]
             # Ensure seasons is a list
             if isinstance(seasons, int):
                 return [seasons]
@@ -140,11 +135,11 @@ class DataFetcher:
         for col in result_df.columns:
             dtype = result_df[col].dtype
 
-            # Convert Timestamp columns to strings vectorially
+            # Convert Timestamp columns to strings, handling NaT properly
             if pd.api.types.is_datetime64_any_dtype(dtype):
-                result_df[col] = result_df[col].astype(str)
-                # Replace 'NaT' strings with None
-                result_df[col] = result_df[col].replace("NaT", None)
+                # Use list comprehension to properly handle NaT as None
+                values = [None if pd.isna(v) else str(v) for v in result_df[col]]
+                result_df[col] = pd.Series(values, index=result_df.index, dtype=object)
             # Convert numpy integer/float types to Python native (preserving NaN as None)
             # Must use list comprehension + .item() to ensure native Python types
             elif pd.api.types.is_integer_dtype(dtype) or pd.api.types.is_float_dtype(
@@ -244,12 +239,10 @@ class DataFetcher:
                 f"Valid datasets are: {', '.join(sorted(valid_datasets))}"
             )
 
-        loader, description, supports_seasons, default_season = definition
+        loader, description, supports_seasons = definition
 
         # Build parameters for the loader
-        loader_param = self._build_params_for_loader(
-            supports_seasons, default_season, params
-        )
+        loader_param = self._build_params_for_loader(supports_seasons, params)
 
         try:
             logger.info(f"Fetching data for {dataset} with params: {params}")
@@ -417,7 +410,9 @@ class DataFetcher:
         if definition is None:
             return None
 
-        _, description, supports_seasons, default_season = definition
+        _, description, supports_seasons = definition
+        # For seasonal datasets, the default season is always the current season
+        default_season = get_current_season_year() if supports_seasons else None
         return {
             "name": dataset,
             "description": description,

@@ -11,7 +11,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from fast_nfl_mcp.constants import DEFAULT_MAX_ROWS
+from fast_nfl_mcp.constants import DEFAULT_MAX_ROWS, get_current_season_year
 from fast_nfl_mcp.data_fetcher import DataFetcher
 from fast_nfl_mcp.models import ErrorResponse, SuccessResponse
 
@@ -148,7 +148,6 @@ class TestDataFetcherFetchWithMocks:
                     lambda _: sample_dataframe,
                     "Test description",
                     True,
-                    2024,
                 ),
             },
             clear=True,
@@ -178,7 +177,6 @@ class TestDataFetcherFetchWithMocks:
                     mock_loader,
                     "Test description",
                     True,
-                    2024,
                 ),
             },
             clear=True,
@@ -203,7 +201,6 @@ class TestDataFetcherFetchWithMocks:
                     mock_loader,
                     "Test description",
                     True,
-                    2024,
                 ),
             },
             clear=True,
@@ -222,7 +219,6 @@ class TestDataFetcherFetchWithMocks:
                     lambda _: large_dataframe,
                     "Large dataset",
                     True,
-                    2024,
                 ),
             },
             clear=True,
@@ -247,7 +243,6 @@ class TestDataFetcherFetchWithMocks:
                     lambda _: large_dataframe,
                     "Large dataset",
                     True,
-                    2024,
                 ),
             },
             clear=True,
@@ -272,7 +267,6 @@ class TestDataFetcherFetchWithMocks:
                     lambda _: sample_dataframe,
                     "Test description",
                     True,
-                    2024,
                 ),
             },
             clear=True,
@@ -301,7 +295,6 @@ class TestDataFetcherFetchWithMocks:
                     mock_loader,
                     "Non-seasonal data",
                     False,
-                    None,
                 ),
             },
             clear=True,
@@ -321,7 +314,6 @@ class TestDataFetcherFetchWithMocks:
                     lambda _: large_dataframe,
                     "Large dataset",
                     True,
-                    2024,
                 ),
             },
             clear=True,
@@ -344,7 +336,6 @@ class TestDataFetcherFetchWithMocks:
                     lambda _: large_dataframe,
                     "Large dataset",
                     True,
-                    2024,
                 ),
             },
             clear=True,
@@ -367,7 +358,6 @@ class TestDataFetcherFetchWithMocks:
                     lambda _: large_dataframe,
                     "Large dataset",
                     True,
-                    2024,
                 ),
             },
             clear=True,
@@ -390,7 +380,6 @@ class TestDataFetcherFetchWithMocks:
                     lambda _: large_dataframe,
                     "Large dataset",
                     True,
-                    2024,
                 ),
             },
             clear=True,
@@ -414,7 +403,6 @@ class TestDataFetcherFetchWithMocks:
                     lambda _: large_dataframe,
                     "Large dataset",
                     True,
-                    2024,
                 ),
             },
             clear=True,
@@ -443,7 +431,6 @@ class TestDataFetcherErrorHandling:
                     raise_connection_error,
                     "Will fail",
                     True,
-                    2024,
                 ),
             },
             clear=True,
@@ -470,7 +457,6 @@ class TestDataFetcherErrorHandling:
                     raise_timeout_error,
                     "Will timeout",
                     True,
-                    2024,
                 ),
             },
             clear=True,
@@ -495,7 +481,6 @@ class TestDataFetcherErrorHandling:
                     raise_value_error,
                     "Invalid params",
                     True,
-                    2024,
                 ),
             },
             clear=True,
@@ -522,7 +507,6 @@ class TestDataFetcherErrorHandling:
                     raise_runtime_error,
                     "Will break",
                     True,
-                    2024,
                 ),
             },
             clear=True,
@@ -547,7 +531,6 @@ class TestDataFetcherErrorHandling:
                     raise_os_error,
                     "Will break",
                     True,
-                    2024,
                 ),
             },
             clear=True,
@@ -572,7 +555,6 @@ class TestDataFetcherErrorHandling:
                     raise_keyboard_interrupt,
                     "Will interrupt",
                     True,
-                    2024,
                 ),
             },
             clear=True,
@@ -594,7 +576,6 @@ class TestDataFetcherErrorHandling:
                     raise_system_exit,
                     "Will exit",
                     True,
-                    2024,
                 ),
             },
             clear=True,
@@ -616,7 +597,6 @@ class TestDataFetcherErrorHandling:
                     raise_attribute_error,
                     "Will fail",
                     True,
-                    2024,
                 ),
             },
             clear=True,
@@ -641,7 +621,6 @@ class TestDataFetcherErrorHandling:
                     raise_type_error,
                     "Will fail",
                     True,
-                    2024,
                 ),
             },
             clear=True,
@@ -664,7 +643,6 @@ class TestDataFetcherErrorHandling:
                     lambda _: empty_df,
                     "Empty data",
                     True,
-                    2024,
                 ),
             },
             clear=True,
@@ -687,7 +665,6 @@ class TestDataFetcherErrorHandling:
                     lambda _: None,
                     "Returns None",
                     True,
-                    2024,
                 ),
             },
             clear=True,
@@ -716,7 +693,7 @@ class TestDataFetcherDataConversion:
         with patch.dict(
             "fast_nfl_mcp.data_fetcher.DATASET_DEFINITIONS",
             {
-                "test": (lambda _: df, "Test", True, 2024),
+                "test": (lambda _: df, "Test", True),
             },
             clear=True,
         ):
@@ -740,7 +717,7 @@ class TestDataFetcherDataConversion:
         with patch.dict(
             "fast_nfl_mcp.data_fetcher.DATASET_DEFINITIONS",
             {
-                "test": (lambda _: df, "Test", True, 2024),
+                "test": (lambda _: df, "Test", True),
             },
             clear=True,
         ):
@@ -763,7 +740,7 @@ class TestDataFetcherDataConversion:
         with patch.dict(
             "fast_nfl_mcp.data_fetcher.DATASET_DEFINITIONS",
             {
-                "test": (lambda _: df, "Test", True, 2024),
+                "test": (lambda _: df, "Test", True),
             },
             clear=True,
         ):
@@ -787,7 +764,7 @@ class TestDataFetcherDataConversion:
         with patch.dict(
             "fast_nfl_mcp.data_fetcher.DATASET_DEFINITIONS",
             {
-                "test": (lambda _: df, "Test", True, 2024),
+                "test": (lambda _: df, "Test", True),
             },
             clear=True,
         ):
@@ -810,7 +787,7 @@ class TestDataFetcherDataConversion:
         with patch.dict(
             "fast_nfl_mcp.data_fetcher.DATASET_DEFINITIONS",
             {
-                "test": (lambda _: df, "Test", True, 2024),
+                "test": (lambda _: df, "Test", True),
             },
             clear=True,
         ):
@@ -836,7 +813,7 @@ class TestDataFetcherDataConversion:
         with patch.dict(
             "fast_nfl_mcp.data_fetcher.DATASET_DEFINITIONS",
             {
-                "test": (lambda _: df, "Test", True, 2024),
+                "test": (lambda _: df, "Test", True),
             },
             clear=True,
         ):
@@ -858,7 +835,7 @@ class TestDataFetcherFilterWarnings:
         with patch.dict(
             "fast_nfl_mcp.data_fetcher.DATASET_DEFINITIONS",
             {
-                "test": (lambda _: df, "Test", True, 2024),
+                "test": (lambda _: df, "Test", True),
             },
             clear=True,
         ):
@@ -877,7 +854,7 @@ class TestDataFetcherFilterWarnings:
         with patch.dict(
             "fast_nfl_mcp.data_fetcher.DATASET_DEFINITIONS",
             {
-                "test": (lambda _: df, "Test", True, 2024),
+                "test": (lambda _: df, "Test", True),
             },
             clear=True,
         ):
@@ -896,7 +873,7 @@ class TestDataFetcherFilterWarnings:
         with patch.dict(
             "fast_nfl_mcp.data_fetcher.DATASET_DEFINITIONS",
             {
-                "test": (lambda _: df, "Test", True, 2024),
+                "test": (lambda _: df, "Test", True),
             },
             clear=True,
         ):
@@ -915,7 +892,7 @@ class TestDataFetcherFilterWarnings:
         with patch.dict(
             "fast_nfl_mcp.data_fetcher.DATASET_DEFINITIONS",
             {
-                "test": (lambda _: df, "Test", True, 2024),
+                "test": (lambda _: df, "Test", True),
             },
             clear=True,
         ):
@@ -939,7 +916,7 @@ class TestDataFetcherFilterWarnings:
         with patch.dict(
             "fast_nfl_mcp.data_fetcher.DATASET_DEFINITIONS",
             {
-                "test": (lambda _: df, "Test", True, 2024),
+                "test": (lambda _: df, "Test", True),
             },
             clear=True,
         ):
@@ -969,15 +946,16 @@ class TestDataFetcherParamsHandling:
         with patch.dict(
             "fast_nfl_mcp.data_fetcher.DATASET_DEFINITIONS",
             {
-                "test": (mock_loader, "Test", True, 2024),
+                "test": (mock_loader, "Test", True),
             },
             clear=True,
         ):
             fetcher = DataFetcher()
             fetcher.fetch("test", None)
 
-            # Should use default season
-            assert loader_called_with == [[2024]]
+            # Should use current season as default
+            current_season = get_current_season_year()
+            assert loader_called_with == [[current_season]]
 
     def test_fetch_with_empty_params(self) -> None:
         """Test fetch with empty params dict uses defaults."""
@@ -990,15 +968,16 @@ class TestDataFetcherParamsHandling:
         with patch.dict(
             "fast_nfl_mcp.data_fetcher.DATASET_DEFINITIONS",
             {
-                "test": (mock_loader, "Test", True, 2024),
+                "test": (mock_loader, "Test", True),
             },
             clear=True,
         ):
             fetcher = DataFetcher()
             fetcher.fetch("test", {})
 
-            # Should use default season
-            assert loader_called_with == [[2024]]
+            # Should use current season as default
+            current_season = get_current_season_year()
+            assert loader_called_with == [[current_season]]
 
     def test_fetch_ignores_unknown_params(self) -> None:
         """Test that unknown params are ignored."""
@@ -1007,7 +986,7 @@ class TestDataFetcherParamsHandling:
         with patch.dict(
             "fast_nfl_mcp.data_fetcher.DATASET_DEFINITIONS",
             {
-                "test": (lambda _: df, "Test", True, 2024),
+                "test": (lambda _: df, "Test", True),
             },
             clear=True,
         ):
@@ -1028,7 +1007,7 @@ class TestDataFetcherColumnSelection:
         with patch.dict(
             "fast_nfl_mcp.data_fetcher.DATASET_DEFINITIONS",
             {
-                "test": (lambda _: df, "Test", True, 2024),
+                "test": (lambda _: df, "Test", True),
             },
             clear=True,
         ):
@@ -1046,7 +1025,7 @@ class TestDataFetcherColumnSelection:
         with patch.dict(
             "fast_nfl_mcp.data_fetcher.DATASET_DEFINITIONS",
             {
-                "test": (lambda _: df, "Test", True, 2024),
+                "test": (lambda _: df, "Test", True),
             },
             clear=True,
         ):
@@ -1066,7 +1045,7 @@ class TestDataFetcherColumnSelection:
         with patch.dict(
             "fast_nfl_mcp.data_fetcher.DATASET_DEFINITIONS",
             {
-                "test": (lambda _: df, "Test", True, 2024),
+                "test": (lambda _: df, "Test", True),
             },
             clear=True,
         ):
@@ -1084,7 +1063,7 @@ class TestDataFetcherColumnSelection:
         with patch.dict(
             "fast_nfl_mcp.data_fetcher.DATASET_DEFINITIONS",
             {
-                "test": (lambda _: df, "Test", True, 2024),
+                "test": (lambda _: df, "Test", True),
             },
             clear=True,
         ):
@@ -1102,7 +1081,7 @@ class TestDataFetcherColumnSelection:
         with patch.dict(
             "fast_nfl_mcp.data_fetcher.DATASET_DEFINITIONS",
             {
-                "test": (lambda _: df, "Test", True, 2024),
+                "test": (lambda _: df, "Test", True),
             },
             clear=True,
         ):
@@ -1127,10 +1106,11 @@ class TestDataFetcherApplyFilters:
             }
         )
 
-        result = fetcher._apply_filters(df, {"team": ["KC"]})
+        result, invalid_cols = fetcher._apply_filters(df, {"team": ["KC"]})
 
         assert len(result) == 2
         assert all(result["team"] == "KC")
+        assert invalid_cols == []
 
     def test_apply_filters_with_multiple_valid_keys(self) -> None:
         """Test _apply_filters with multiple valid column keys."""
@@ -1143,11 +1123,12 @@ class TestDataFetcherApplyFilters:
             }
         )
 
-        result = fetcher._apply_filters(df, {"team": ["KC"], "week": [1]})
+        result, invalid_cols = fetcher._apply_filters(df, {"team": ["KC"], "week": [1]})
 
         assert len(result) == 2
         assert all(result["team"] == "KC")
         assert all(result["week"] == 1)
+        assert invalid_cols == []
 
     def test_apply_filters_with_multiple_values(self) -> None:
         """Test _apply_filters with multiple values for a single key."""
@@ -1159,10 +1140,11 @@ class TestDataFetcherApplyFilters:
             }
         )
 
-        result = fetcher._apply_filters(df, {"team": ["KC", "SF"]})
+        result, invalid_cols = fetcher._apply_filters(df, {"team": ["KC", "SF"]})
 
         assert len(result) == 2
         assert set(result["team"]) == {"KC", "SF"}
+        assert invalid_cols == []
 
     def test_apply_filters_with_nonexistent_key(self) -> None:
         """Test _apply_filters with a key not present in the DataFrame."""
@@ -1175,10 +1157,11 @@ class TestDataFetcherApplyFilters:
         )
 
         # Filter on a column that doesn't exist should be ignored
-        result = fetcher._apply_filters(df, {"nonexistent": ["value"]})
+        result, invalid_cols = fetcher._apply_filters(df, {"nonexistent": ["value"]})
 
         # All rows should remain since the filter was ignored
         assert len(result) == 3
+        assert invalid_cols == ["nonexistent"]
 
     def test_apply_filters_with_mixed_valid_invalid_keys(self) -> None:
         """Test _apply_filters with both valid and invalid column keys."""
@@ -1191,22 +1174,24 @@ class TestDataFetcherApplyFilters:
         )
 
         # "team" is valid, "nonexistent" is not
-        result = fetcher._apply_filters(
+        result, invalid_cols = fetcher._apply_filters(
             df, {"team": ["KC", "SF"], "nonexistent": ["value"]}
         )
 
         # Should filter by team only, ignoring nonexistent
         assert len(result) == 2
         assert set(result["team"]) == {"KC", "SF"}
+        assert invalid_cols == ["nonexistent"]
 
     def test_apply_filters_with_empty_filters(self) -> None:
         """Test _apply_filters with empty filters dict."""
         fetcher = DataFetcher()
         df = pd.DataFrame({"team": ["KC", "SF"], "score": [28, 21]})
 
-        result = fetcher._apply_filters(df, {})
+        result, invalid_cols = fetcher._apply_filters(df, {})
 
         assert len(result) == 2
+        assert invalid_cols == []
 
     def test_apply_filters_no_matching_values(self) -> None:
         """Test _apply_filters when filter values don't match any rows."""
@@ -1218,9 +1203,10 @@ class TestDataFetcherApplyFilters:
             }
         )
 
-        result = fetcher._apply_filters(df, {"team": ["NYG", "NYJ"]})
+        result, invalid_cols = fetcher._apply_filters(df, {"team": ["NYG", "NYJ"]})
 
         assert len(result) == 0
+        assert invalid_cols == []
 
 
 class TestDataFetcherFiltersViaFetch:
@@ -1239,7 +1225,7 @@ class TestDataFetcherFiltersViaFetch:
         with patch.dict(
             "fast_nfl_mcp.data_fetcher.DATASET_DEFINITIONS",
             {
-                "test": (lambda _: df, "Test", True, 2024),
+                "test": (lambda _: df, "Test", True),
             },
             clear=True,
         ):
@@ -1262,7 +1248,7 @@ class TestDataFetcherFiltersViaFetch:
         with patch.dict(
             "fast_nfl_mcp.data_fetcher.DATASET_DEFINITIONS",
             {
-                "test": (lambda _: df, "Test", True, 2024),
+                "test": (lambda _: df, "Test", True),
             },
             clear=True,
         ):
@@ -1287,7 +1273,7 @@ class TestDataFetcherFiltersViaFetch:
         with patch.dict(
             "fast_nfl_mcp.data_fetcher.DATASET_DEFINITIONS",
             {
-                "test": (lambda _: df, "Test", True, 2024),
+                "test": (lambda _: df, "Test", True),
             },
             clear=True,
         ):
@@ -1305,7 +1291,7 @@ class TestDataFetcherFiltersViaFetch:
         with patch.dict(
             "fast_nfl_mcp.data_fetcher.DATASET_DEFINITIONS",
             {
-                "test": (lambda _: df, "Test", True, 2024),
+                "test": (lambda _: df, "Test", True),
             },
             clear=True,
         ):
@@ -1328,7 +1314,7 @@ class TestDataFetcherFiltersViaFetch:
         with patch.dict(
             "fast_nfl_mcp.data_fetcher.DATASET_DEFINITIONS",
             {
-                "test": (lambda _: df, "Test", True, 2024),
+                "test": (lambda _: df, "Test", True),
             },
             clear=True,
         ):

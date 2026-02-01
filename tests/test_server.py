@@ -50,7 +50,6 @@ class TestLifespan:
                 lambda _: mock_df,
                 "Test dataset",
                 True,
-                2024,
             ),
         }
 
@@ -110,7 +109,6 @@ class TestLifespan:
                 raise_error,
                 "Will fail",
                 True,
-                2024,
             ),
         }
 
@@ -157,7 +155,6 @@ class TestMCPToolFunctions:
                 lambda _: mock_df,
                 "Test dataset",
                 True,
-                2024,
             ),
         }
 
@@ -180,7 +177,6 @@ class TestMCPToolFunctions:
                 lambda _: mock_df,
                 "Test dataset",
                 True,
-                2024,
             ),
         }
 
@@ -204,7 +200,6 @@ class TestMCPToolFunctions:
                 lambda _: mock_df,
                 "Test dataset",
                 True,
-                2024,
             ),
         }
 

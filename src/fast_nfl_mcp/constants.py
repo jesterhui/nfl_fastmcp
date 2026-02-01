@@ -4,6 +4,8 @@ This module centralizes configuration constants used throughout the package.
 Update values here to change behavior across the codebase.
 """
 
+from datetime import date
+
 # Maximum number of rows to return by default in data fetches
 DEFAULT_MAX_ROWS: int = 100
 
@@ -24,6 +26,13 @@ MAX_SEASONS_NGS: int = 5
 MAX_SEASONS_SCHEDULES: int = 10
 MAX_SEASONS_DRAFT: int = 20
 
+# Maximum seasons for misc tools
+MAX_SEASONS_SNAP_COUNTS: int = 5
+MAX_SEASONS_INJURIES: int = 5
+MAX_SEASONS_DEPTH_CHARTS: int = 5
+MAX_SEASONS_COMBINE: int = 10
+MAX_SEASONS_QBR: int = 5
+
 # Earliest season with Next Gen Stats data (NGS tracking started in 2016)
 MIN_SEASON_NGS: int = 2016
 
@@ -33,6 +42,32 @@ MAX_WEEK: int = 18
 
 # Earliest season with reliable play-by-play data
 MIN_SEASON: int = 1999
+
+
+def get_current_season_year() -> int:
+    """Calculate the current NFL season year based on today's date.
+
+    The NFL season typically starts in early September and ends in February.
+    This function determines which season year should be considered "current":
+    - January through August: Returns the previous calendar year (e.g., Feb 2026 -> 2025)
+    - September through December: Returns the current calendar year (e.g., Oct 2026 -> 2026)
+
+    Returns:
+        The current NFL season year as an integer.
+
+    Examples:
+        >>> # If today is February 15, 2026
+        >>> get_current_season_year()  # Returns 2025
+        >>> # If today is October 15, 2026
+        >>> get_current_season_year()  # Returns 2026
+    """
+    today = date.today()
+    # NFL season starts in September (month 9)
+    # If we're in January-August, we're still in the previous season
+    if today.month < 9:
+        return today.year - 1
+    return today.year
+
 
 # Valid NFL team abbreviations (current 32 teams plus historical)
 VALID_TEAM_ABBREVIATIONS: frozenset[str] = frozenset(
