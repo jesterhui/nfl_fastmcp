@@ -5,7 +5,6 @@ including connection handling, DataFrame caching, and graceful fallback.
 """
 
 import os
-import pickle
 import time
 from unittest.mock import MagicMock, patch
 
@@ -66,7 +65,7 @@ class TestRedisConnection:
             mock_from_url.assert_called_once()
 
     def test_connection_failure_cached_with_cooldown(self) -> None:
-        """Test that connection failure is cached and not retried immediately."""
+        """Test that failure is cached and not retried immediately."""
         with patch("redis.from_url") as mock_from_url:
             mock_from_url.side_effect = Exception("Connection refused")
 
@@ -105,7 +104,7 @@ class TestRedisConnection:
             assert mock_from_url.call_count == 2  # Retry occurred
 
     def test_import_error_permanently_disables_redis(self) -> None:
-        """Test that ImportError permanently disables Redis (no retries ever)."""
+        """Test that ImportError permanently disables Redis."""
         with patch.dict("sys.modules", {"redis": None}):
             with patch("builtins.__import__", side_effect=ImportError("No module")):
                 # First call - import fails
@@ -114,9 +113,8 @@ class TestRedisConnection:
 
                 # Reset time tracking to simulate cooldown passed
                 # (but shouldn't matter for ImportError)
-                with patch(
-                    "fast_nfl_mcp.redis_cache.time.monotonic", return_value=1000.0
-                ):
+                monotonic_path = "fast_nfl_mcp.redis_cache.time.monotonic"
+                with patch(monotonic_path, return_value=1000.0):
                     result2 = is_redis_available()
                     assert result2 is False
 
@@ -153,7 +151,7 @@ class TestRedisConnection:
             assert "localhost:6379" in call_args[0][0]
 
     def test_reset_allows_reconnection(self) -> None:
-        """Test that reset_redis_connection allows re-attempting connection."""
+        """Test that reset_redis_connection allows reconnection."""
         mock_client = MagicMock()
         mock_client.ping.return_value = True
 
@@ -168,7 +166,7 @@ class TestRedisConnection:
             assert mock_from_url.call_count == 2
 
     def test_connection_lost_triggers_cooldown(self) -> None:
-        """Test that connection loss triggers cooldown before reconnection."""
+        """Test that connection loss triggers cooldown."""
         mock_client = MagicMock()
         # First ping succeeds, second fails (connection lost)
         mock_client.ping.side_effect = [True, Exception("Connection lost")]
@@ -280,17 +278,7 @@ class TestDataFrameCachingEdgeCases:
 
         with patch("redis.from_url", return_value=mock_client):
             result = get_cached_dataframe("test_key")
-            # Should return None on unpickling error
-            assert result is None
-
-    def test_get_cached_dataframe_handles_non_dataframe(self) -> None:
-        """Test that non-DataFrame cached data returns None."""
-        mock_client = MagicMock()
-        mock_client.ping.return_value = True
-        mock_client.get.return_value = pickle.dumps({"not": "a dataframe"})
-
-        with patch("redis.from_url", return_value=mock_client):
-            result = get_cached_dataframe("test_key")
+            # Should return None on Parquet parsing error
             assert result is None
 
     def test_set_cached_dataframe_returns_false_when_unavailable(
@@ -385,7 +373,7 @@ class TestGracefulDegradation:
                 get_cached_dataframe("test")
                 set_cached_dataframe("test", pd.DataFrame(), 3600)
 
-            # Should complete quickly (only 1 connection attempt due to cooldown)
+            # Should complete quickly (1 attempt due to cooldown)
             elapsed = time.time() - start
             assert elapsed < 1.0  # Should be nearly instant
 

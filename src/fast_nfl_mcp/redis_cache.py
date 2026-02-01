@@ -6,11 +6,14 @@ supports configurable TTL and graceful degradation when Redis is unavailable.
 
 Connection failures are cached with a cooldown period to avoid blocking
 every request when Redis is known to be down.
+
+Security: Uses Parquet serialization instead of pickle to prevent
+remote code execution via cache poisoning attacks.
 """
 
+import io
 import logging
 import os
-import pickle
 import time
 from typing import Any
 
@@ -51,8 +54,6 @@ def _should_skip_connection_attempt() -> bool:
     Returns:
         True if connection attempt should be skipped, False otherwise.
     """
-    global _last_failure_time, _redis_permanently_unavailable
-
     if _redis_permanently_unavailable:
         return True
 
@@ -92,7 +93,7 @@ def _try_connect() -> Any:
         logger.info(f"Connecting to Redis at {redis_url}")
         client = redis.from_url(
             redis_url,
-            decode_responses=False,  # We need bytes for pickle
+            decode_responses=False,  # We need bytes for Parquet data
             socket_connect_timeout=5,
             socket_timeout=5,
         )
@@ -156,6 +157,8 @@ def is_redis_available() -> bool:
 def get_cached_dataframe(key: str) -> pd.DataFrame | None:
     """Retrieve a cached DataFrame from Redis.
 
+    Uses Parquet deserialization for security (no code execution risk).
+
     Args:
         key: The cache key to retrieve.
 
@@ -172,13 +175,11 @@ def get_cached_dataframe(key: str) -> pd.DataFrame | None:
             logger.debug(f"Cache miss for key: {key}")
             return None
 
-        df = pickle.loads(data)
-        if isinstance(df, pd.DataFrame):
-            logger.debug(f"Cache hit for key: {key} ({len(df)} rows)")
-            return df
-        else:
-            logger.warning(f"Cached data for key {key} is not a DataFrame")
-            return None
+        # Deserialize from Parquet format (safe, no code execution)
+        buffer = io.BytesIO(data)
+        df = pd.read_parquet(buffer)
+        logger.debug(f"Cache hit for key: {key} ({len(df)} rows)")
+        return df
     except Exception as e:
         logger.warning(f"Error retrieving from cache: {e}")
         return None
@@ -186,6 +187,8 @@ def get_cached_dataframe(key: str) -> pd.DataFrame | None:
 
 def set_cached_dataframe(key: str, df: pd.DataFrame, ttl_seconds: int) -> bool:
     """Store a DataFrame in the Redis cache.
+
+    Uses Parquet serialization for security (no code execution risk on read).
 
     Args:
         key: The cache key to store under.
@@ -200,9 +203,12 @@ def set_cached_dataframe(key: str, df: pd.DataFrame, ttl_seconds: int) -> bool:
         return False
 
     try:
-        data = pickle.dumps(df)
+        # Serialize to Parquet format (safe, efficient)
+        buffer = io.BytesIO()
+        df.to_parquet(buffer, index=False)
+        data = buffer.getvalue()
         client.setex(key, ttl_seconds, data)
-        logger.debug(f"Cached DataFrame under key: {key} (TTL: {ttl_seconds}s)")
+        logger.debug(f"Cached DataFrame: {key} (TTL: {ttl_seconds}s)")
         return True
     except Exception as e:
         logger.warning(f"Error storing in cache: {e}")
