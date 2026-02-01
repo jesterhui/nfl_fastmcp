@@ -799,6 +799,113 @@ class TestDataFetcherDataConversion:
             assert isinstance(json_str, str)
 
 
+class TestDataFetcherFilterWarnings:
+    """Tests for invalid filter column warnings."""
+
+    def test_invalid_filter_column_returns_warning(self) -> None:
+        """Test that invalid filter columns return a warning."""
+        df = pd.DataFrame({"col1": [1, 2, 3], "col2": ["a", "b", "c"]})
+
+        with patch.dict(
+            "fast_nfl_mcp.data_fetcher.DATASET_DEFINITIONS",
+            {
+                "test": (lambda _: df, "Test", True, 2024),
+            },
+            clear=True,
+        ):
+            fetcher = DataFetcher()
+            response = fetcher.fetch("test", filters={"invalid_col": ["x"]})
+
+            assert isinstance(response, SuccessResponse)
+            assert response.warning is not None
+            assert "invalid_col" in response.warning
+            assert "do not exist" in response.warning
+
+    def test_multiple_invalid_filter_columns_listed(self) -> None:
+        """Test that multiple invalid filter columns are all listed."""
+        df = pd.DataFrame({"col1": [1, 2, 3]})
+
+        with patch.dict(
+            "fast_nfl_mcp.data_fetcher.DATASET_DEFINITIONS",
+            {
+                "test": (lambda _: df, "Test", True, 2024),
+            },
+            clear=True,
+        ):
+            fetcher = DataFetcher()
+            response = fetcher.fetch("test", filters={"bad1": ["x"], "bad2": ["y"]})
+
+            assert isinstance(response, SuccessResponse)
+            assert response.warning is not None
+            assert "bad1" in response.warning
+            assert "bad2" in response.warning
+
+    def test_valid_filter_no_warning(self) -> None:
+        """Test that valid filter columns don't produce a warning."""
+        df = pd.DataFrame({"col1": [1, 2, 3], "col2": ["a", "b", "c"]})
+
+        with patch.dict(
+            "fast_nfl_mcp.data_fetcher.DATASET_DEFINITIONS",
+            {
+                "test": (lambda _: df, "Test", True, 2024),
+            },
+            clear=True,
+        ):
+            fetcher = DataFetcher()
+            response = fetcher.fetch("test", filters={"col1": [1, 2]})
+
+            assert isinstance(response, SuccessResponse)
+            # No warning about invalid filters (might have truncation warning)
+            if response.warning:
+                assert "do not exist" not in response.warning
+
+    def test_mixed_valid_invalid_filters(self) -> None:
+        """Test mixed valid and invalid filters - valid ones applied, invalid warned."""
+        df = pd.DataFrame({"col1": [1, 2, 3], "col2": ["a", "b", "c"]})
+
+        with patch.dict(
+            "fast_nfl_mcp.data_fetcher.DATASET_DEFINITIONS",
+            {
+                "test": (lambda _: df, "Test", True, 2024),
+            },
+            clear=True,
+        ):
+            fetcher = DataFetcher()
+            response = fetcher.fetch(
+                "test", filters={"col1": [1], "invalid_col": ["x"]}
+            )
+
+            assert isinstance(response, SuccessResponse)
+            # Valid filter should be applied
+            assert len(response.data) == 1
+            assert response.data[0]["col1"] == 1
+            # Warning about invalid filter
+            assert response.warning is not None
+            assert "invalid_col" in response.warning
+
+    def test_invalid_filter_with_empty_results_warning(self) -> None:
+        """Test invalid filters are mentioned in empty results warning."""
+        df = pd.DataFrame({"col1": [1, 2, 3]})
+
+        with patch.dict(
+            "fast_nfl_mcp.data_fetcher.DATASET_DEFINITIONS",
+            {
+                "test": (lambda _: df, "Test", True, 2024),
+            },
+            clear=True,
+        ):
+            fetcher = DataFetcher()
+            response = fetcher.fetch(
+                "test", filters={"col1": [999], "invalid_col": ["x"]}
+            )
+
+            assert isinstance(response, SuccessResponse)
+            assert response.data == []
+            assert response.warning is not None
+            assert "No data matched" in response.warning
+            assert "invalid_col" in response.warning
+
+
 class TestDataFetcherParamsHandling:
     """Tests for parameter handling in fetch."""
 

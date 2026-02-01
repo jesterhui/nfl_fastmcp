@@ -141,7 +141,7 @@ class DataFetcher:
 
     def _apply_filters(
         self, df: pd.DataFrame, filters: dict[str, list[Any]]
-    ) -> pd.DataFrame:
+    ) -> tuple[pd.DataFrame, list[str]]:
         """Apply filters to a DataFrame.
 
         Args:
@@ -149,12 +149,15 @@ class DataFetcher:
             filters: Dict mapping column names to lists of acceptable values.
 
         Returns:
-            Filtered DataFrame.
+            A tuple of (filtered DataFrame, list of invalid filter column names).
         """
+        invalid_filters: list[str] = []
         for column, values in filters.items():
             if column in df.columns:
                 df = df[df[column].isin(values)]
-        return df
+            else:
+                invalid_filters.append(column)
+        return df, invalid_filters
 
     def fetch(
         self,
@@ -231,15 +234,22 @@ class DataFetcher:
                 )
 
             # Apply filters before truncation
+            invalid_filter_cols: list[str] = []
             if filters:
-                df = self._apply_filters(df, filters)
+                df, invalid_filter_cols = self._apply_filters(df, filters)
                 if df.empty:
+                    filter_warning = "No data matched the specified filters."
+                    if invalid_filter_cols:
+                        filter_warning += (
+                            f" Note: The following filter columns do not exist "
+                            f"in the dataset and were ignored: {invalid_filter_cols}"
+                        )
                     return create_success_response(
                         data=[],
                         total_available=0,
                         truncated=False,
                         columns=[str(col) for col in df.columns],
-                        warning="No data matched the specified filters.",
+                        warning=filter_warning,
                     )
 
             # Select specific columns if requested
@@ -287,14 +297,20 @@ class DataFetcher:
             # Convert to records
             records, columns = self._convert_dataframe_to_records(df)
 
-            # Build warning message if truncated
-            warning = None
+            # Build warning message
+            warnings: list[str] = []
+            if invalid_filter_cols:
+                warnings.append(
+                    f"The following filter columns do not exist in the dataset "
+                    f"and were ignored: {invalid_filter_cols}"
+                )
             if truncated:
                 next_offset = offset + effective_limit
-                warning = (
+                warnings.append(
                     f"Results truncated. Showing {effective_limit} of {total_available} total rows "
                     f"(offset: {offset}). Use offset={next_offset} to get the next page."
                 )
+            warning = " ".join(warnings) if warnings else None
 
             return create_success_response(
                 data=records,
