@@ -71,7 +71,6 @@ class TestListDatasets:
                     lambda _: mock_df,
                     "Test description",
                     True,
-                    2024,
                 ),
             },
             clear=True,
@@ -84,7 +83,6 @@ class TestListDatasets:
                         lambda _: mock_df,
                         "Test description",
                         True,
-                        2024,
                     ),
                 },
                 clear=True,
@@ -109,7 +107,6 @@ class TestListDatasets:
                     raise_error,
                     "Will fail",
                     True,
-                    2024,
                 ),
             },
             clear=True,
@@ -121,7 +118,6 @@ class TestListDatasets:
                         raise_error,
                         "Will fail",
                         True,
-                        2024,
                     ),
                 },
                 clear=True,
@@ -150,7 +146,7 @@ class TestListDatasets:
 
         for dataset in response.data:
             name = dataset["name"]
-            _, _, expected_supports_seasons, _ = DATASET_DEFINITIONS[name]
+            _, _, expected_supports_seasons = DATASET_DEFINITIONS[name]
             assert dataset["supports_seasons"] == expected_supports_seasons
 
     def test_metadata_includes_columns(self) -> None:
@@ -376,7 +372,6 @@ class TestUtilitiesIntegration:
                     lambda _: mock_df,
                     "A test dataset",
                     True,
-                    2024,
                 ),
             },
             clear=True,
@@ -388,7 +383,6 @@ class TestUtilitiesIntegration:
                         lambda _: mock_df,
                         "A test dataset",
                         True,
-                        2024,
                     ),
                 },
                 clear=True,

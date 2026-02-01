@@ -12,6 +12,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
+from fast_nfl_mcp.constants import MIN_SEASON, get_current_season_year
 from fast_nfl_mcp.models import ColumnSchema, DatasetSchema
 from fast_nfl_mcp.schema_manager import SchemaManager
 
@@ -131,9 +132,14 @@ def sample_column_schema() -> ColumnSchema:
 @pytest.fixture
 def sample_dataset_schema(sample_column_schema: ColumnSchema) -> DatasetSchema:
     """Create a sample DatasetSchema for testing."""
+    current_season = get_current_season_year()
     columns = [
         sample_column_schema,
-        ColumnSchema(name="game_id", dtype="object", sample_values=["2024_01_KC_DET"]),
+        ColumnSchema(
+            name="game_id",
+            dtype="object",
+            sample_values=[f"{current_season}_01_KC_DET"],
+        ),
         ColumnSchema(name="play_id", dtype="int64", sample_values=[1, 2, 3]),
     ]
     return DatasetSchema(
@@ -141,7 +147,7 @@ def sample_dataset_schema(sample_column_schema: ColumnSchema) -> DatasetSchema:
         description="Play-by-play data with EPA, WPA, and detailed play outcomes",
         columns=columns,
         row_count=50000,
-        available_seasons=list(range(1999, 2025)),
+        available_seasons=list(range(MIN_SEASON, current_season + 1)),
     )
 
 
@@ -168,13 +174,11 @@ def mock_schema_manager(sample_play_by_play_df: pd.DataFrame) -> SchemaManager:
             lambda _: sample_play_by_play_df,
             "Play-by-play data with EPA, WPA, and detailed play outcomes",
             True,
-            2024,
         ),
         "team_descriptions": (
             lambda _: pd.DataFrame({"team": ["KC", "SF"], "name": ["Chiefs", "49ers"]}),
             "Team metadata and information",
             False,
-            None,
         ),
     }
 
@@ -200,13 +204,11 @@ def schema_manager_with_failures() -> SchemaManager:
             lambda _: pd.DataFrame({"col": [1, 2, 3]}),
             "Working dataset",
             True,
-            2024,
         ),
         "failed_dataset": (
             raise_error,
             "Broken dataset",
             True,
-            2024,
         ),
     }
 
@@ -292,7 +294,8 @@ def nfl_teams() -> list[str]:
 @pytest.fixture
 def sample_seasons() -> list[int]:
     """Return a sample list of NFL seasons for testing."""
-    return [2020, 2021, 2022, 2023, 2024]
+    current_season = get_current_season_year()
+    return list(range(current_season - 4, current_season + 1))
 
 
 @pytest.fixture

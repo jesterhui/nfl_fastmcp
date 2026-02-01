@@ -180,7 +180,7 @@ def lookup_player_impl(
             error="player_ids dataset not found in configuration."
         )
 
-    loader, _, _, _ = definition
+    loader, _, _ = definition
 
     try:
         logger.info(f"Looking up player with name: {name}")

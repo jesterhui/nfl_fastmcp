@@ -30,7 +30,7 @@ def list_datasets_impl(schema_manager: SchemaManager) -> SuccessResponse:
         A SuccessResponse containing dataset information.
     """
     datasets = []
-    for name, (_, description, supports_seasons, _) in DATASET_DEFINITIONS.items():
+    for name, (_, description, supports_seasons) in DATASET_DEFINITIONS.items():
         dataset_info: dict[str, Any] = {
             "name": name,
             "description": description,

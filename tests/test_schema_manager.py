@@ -4,12 +4,14 @@ This module tests the schema preloading and caching functionality
 using mocked nfl_data_py calls to avoid network dependencies.
 """
 
+from datetime import date
 from unittest.mock import MagicMock, patch
 
 import numpy as np
 import pandas as pd
 import pytest
 
+from fast_nfl_mcp.constants import MIN_SEASON, get_current_season_year
 from fast_nfl_mcp.models import ColumnSchema, DatasetSchema
 from fast_nfl_mcp.schema_manager import (
     DATASET_DEFINITIONS,
@@ -234,7 +236,6 @@ class TestSchemaManagerWithMocks:
                     lambda _: mock_dataframe,
                     "Test description",
                     True,
-                    2024,
                 ),
             },
             clear=True,
@@ -256,7 +257,6 @@ class TestSchemaManagerWithMocks:
                     lambda _: mock_dataframe,
                     "Test description",
                     True,
-                    2024,
                 ),
             },
             clear=True,
@@ -281,7 +281,6 @@ class TestSchemaManagerWithMocks:
                     lambda _: mock_dataframe,
                     "Test description",
                     True,
-                    2024,
                 ),
             },
             clear=True,
@@ -312,7 +311,6 @@ class TestSchemaManagerWithMocks:
                     raise_error,
                     "Will fail",
                     True,
-                    2024,
                 ),
             },
             clear=True,
@@ -337,7 +335,6 @@ class TestSchemaManagerWithMocks:
                     raise_connection_error,
                     "Will fail",
                     True,
-                    2024,
                 ),
             },
             clear=True,
@@ -360,7 +357,6 @@ class TestSchemaManagerWithMocks:
                     raise_runtime_error,
                     "Will fail",
                     True,
-                    2024,
                 ),
             },
             clear=True,
@@ -383,7 +379,6 @@ class TestSchemaManagerWithMocks:
                     raise_keyboard_interrupt,
                     "Will interrupt",
                     True,
-                    2024,
                 ),
             },
             clear=True,
@@ -403,7 +398,6 @@ class TestSchemaManagerWithMocks:
                     lambda _: empty_df,
                     "Empty dataset",
                     True,
-                    2024,
                 ),
             },
             clear=True,
@@ -427,7 +421,6 @@ class TestSchemaManagerWithMocks:
                     lambda _: mock_dataframe,
                     "Will load",
                     True,
-                    2024,
                 ),
             },
             clear=True,
@@ -452,7 +445,6 @@ class TestSchemaManagerWithMocks:
                     raise_error,
                     "Will fail",
                     False,
-                    None,
                 ),
             },
             clear=True,
@@ -475,7 +467,6 @@ class TestSchemaManagerWithMocks:
                     lambda _: mock_dataframe,
                     "Seasonal data",
                     True,
-                    2024,
                 ),
             },
             clear=True,
@@ -486,7 +477,11 @@ class TestSchemaManagerWithMocks:
             schema = manager.get_schema("seasonal_dataset")
             assert schema is not None
             assert schema.available_seasons is not None
-            assert 2024 in schema.available_seasons
+            # The current season should always be included
+            current_season = get_current_season_year()
+            assert current_season in schema.available_seasons
+            # MIN_SEASON should always be the start
+            assert MIN_SEASON in schema.available_seasons
 
     def test_non_seasonal_dataset_has_none_seasons(
         self, mock_dataframe: pd.DataFrame
@@ -499,7 +494,6 @@ class TestSchemaManagerWithMocks:
                     lambda _: mock_dataframe,
                     "Non-seasonal data",
                     False,
-                    None,
                 ),
             },
             clear=True,
@@ -550,8 +544,8 @@ class TestDatasetDefinitions:
     def test_definitions_have_correct_structure(self) -> None:
         """Test that all definitions have the correct tuple structure."""
         for name, definition in DATASET_DEFINITIONS.items():
-            assert len(definition) == 4, f"Invalid definition for {name}"
-            loader, description, supports_seasons, default_season = definition
+            assert len(definition) == 3, f"Invalid definition for {name}"
+            loader, description, supports_seasons = definition
 
             assert callable(loader), f"Loader for {name} is not callable"
             assert isinstance(description, str), f"Description for {name} is not str"
@@ -559,19 +553,13 @@ class TestDatasetDefinitions:
                 supports_seasons, bool
             ), f"supports_seasons for {name} is not bool"
 
-            if supports_seasons:
-                assert default_season is not None, f"{name} needs default_season"
-            else:
-                assert default_season is None, f"{name} should have None default_season"
-
     def test_non_seasonal_datasets(self) -> None:
         """Test that non-seasonal datasets are correctly marked."""
         non_seasonal = ["player_ids", "team_descriptions", "contracts", "officials"]
 
         for dataset in non_seasonal:
-            _, _, supports_seasons, default_season = DATASET_DEFINITIONS[dataset]
+            _, _, supports_seasons = DATASET_DEFINITIONS[dataset]
             assert not supports_seasons, f"{dataset} should be non-seasonal"
-            assert default_season is None, f"{dataset} should have None default_season"
 
 
 class TestSchemaManagerSerialization:
@@ -588,7 +576,6 @@ class TestSchemaManagerSerialization:
                     lambda _: df,
                     "Test",
                     False,
-                    None,
                 ),
             },
             clear=True,
@@ -622,7 +609,6 @@ class TestSchemaManagerSerialization:
                     lambda _: df,
                     "Test",
                     False,
-                    None,
                 ),
             },
             clear=True,
@@ -636,3 +622,185 @@ class TestSchemaManagerSerialization:
             # Should not raise
             json_str = json.dumps(schema.to_dict())
             assert isinstance(json_str, str)
+
+
+class TestGetCurrentSeasonYear:
+    """Tests for the get_current_season_year() helper function."""
+
+    def test_january_returns_previous_year(self) -> None:
+        """Test that January returns the previous year's season."""
+        with patch("fast_nfl_mcp.constants.date") as mock_date:
+            mock_date.today.return_value = date(2026, 1, 15)
+            # Need to reimport to pick up the patched date
+            # Re-execute the function with the mock in place
+            import fast_nfl_mcp.constants as constants_module
+            from fast_nfl_mcp.constants import get_current_season_year
+
+            original_date = constants_module.date
+            try:
+                constants_module.date = mock_date
+                result = get_current_season_year()
+            finally:
+                constants_module.date = original_date
+
+            assert result == 2025
+
+    def test_february_returns_previous_year(self) -> None:
+        """Test that February (Super Bowl time) returns previous year's season."""
+        with patch("fast_nfl_mcp.constants.date") as mock_date:
+            mock_date.today.return_value = date(2026, 2, 12)
+            import fast_nfl_mcp.constants as constants_module
+
+            original_date = constants_module.date
+            try:
+                constants_module.date = mock_date
+                result = get_current_season_year()
+            finally:
+                constants_module.date = original_date
+
+            assert result == 2025
+
+    def test_august_returns_previous_year(self) -> None:
+        """Test that August (pre-season) returns previous year's season."""
+        with patch("fast_nfl_mcp.constants.date") as mock_date:
+            mock_date.today.return_value = date(2026, 8, 31)
+            import fast_nfl_mcp.constants as constants_module
+
+            original_date = constants_module.date
+            try:
+                constants_module.date = mock_date
+                result = get_current_season_year()
+            finally:
+                constants_module.date = original_date
+
+            assert result == 2025
+
+    def test_september_returns_current_year(self) -> None:
+        """Test that September (season start) returns current year's season."""
+        with patch("fast_nfl_mcp.constants.date") as mock_date:
+            mock_date.today.return_value = date(2026, 9, 1)
+            import fast_nfl_mcp.constants as constants_module
+
+            original_date = constants_module.date
+            try:
+                constants_module.date = mock_date
+                result = get_current_season_year()
+            finally:
+                constants_module.date = original_date
+
+            assert result == 2026
+
+    def test_december_returns_current_year(self) -> None:
+        """Test that December (mid-season) returns current year's season."""
+        with patch("fast_nfl_mcp.constants.date") as mock_date:
+            mock_date.today.return_value = date(2026, 12, 15)
+            import fast_nfl_mcp.constants as constants_module
+
+            original_date = constants_module.date
+            try:
+                constants_module.date = mock_date
+                result = get_current_season_year()
+            finally:
+                constants_module.date = original_date
+
+            assert result == 2026
+
+    def test_november_returns_current_year(self) -> None:
+        """Test that November returns current year's season."""
+        with patch("fast_nfl_mcp.constants.date") as mock_date:
+            mock_date.today.return_value = date(2026, 11, 20)
+            import fast_nfl_mcp.constants as constants_module
+
+            original_date = constants_module.date
+            try:
+                constants_module.date = mock_date
+                result = get_current_season_year()
+            finally:
+                constants_module.date = original_date
+
+            assert result == 2026
+
+    def test_function_returns_integer(self) -> None:
+        """Test that the function returns an integer."""
+        result = get_current_season_year()
+        assert isinstance(result, int)
+        # Should be a reasonable year
+        assert 2020 <= result <= 2100
+
+
+class TestDynamicSeasonInSchemaManager:
+    """Tests to verify SchemaManager uses dynamic seasons correctly."""
+
+    def test_available_seasons_starts_at_min_season(self) -> None:
+        """Test that available_seasons starts at MIN_SEASON (1999)."""
+        mock_df = pd.DataFrame({"col": [1, 2, 3]})
+
+        with patch.dict(
+            "fast_nfl_mcp.schema_manager.DATASET_DEFINITIONS",
+            {
+                "test_seasonal": (
+                    lambda _: mock_df,
+                    "Test seasonal data",
+                    True,
+                ),
+            },
+            clear=True,
+        ):
+            manager = SchemaManager()
+            manager.preload_all()
+
+            schema = manager.get_schema("test_seasonal")
+            assert schema is not None
+            assert schema.available_seasons is not None
+            assert schema.available_seasons[0] == MIN_SEASON
+
+    def test_available_seasons_ends_at_current_season(self) -> None:
+        """Test that available_seasons ends at the current season."""
+        mock_df = pd.DataFrame({"col": [1, 2, 3]})
+
+        with patch.dict(
+            "fast_nfl_mcp.schema_manager.DATASET_DEFINITIONS",
+            {
+                "test_seasonal": (
+                    lambda _: mock_df,
+                    "Test seasonal data",
+                    True,
+                ),
+            },
+            clear=True,
+        ):
+            manager = SchemaManager()
+            manager.preload_all()
+
+            schema = manager.get_schema("test_seasonal")
+            assert schema is not None
+            assert schema.available_seasons is not None
+
+            current_season = get_current_season_year()
+            assert schema.available_seasons[-1] == current_season
+
+    def test_available_seasons_is_continuous_range(self) -> None:
+        """Test that available_seasons is a continuous range from MIN_SEASON to current."""
+        mock_df = pd.DataFrame({"col": [1, 2, 3]})
+
+        with patch.dict(
+            "fast_nfl_mcp.schema_manager.DATASET_DEFINITIONS",
+            {
+                "test_seasonal": (
+                    lambda _: mock_df,
+                    "Test seasonal data",
+                    True,
+                ),
+            },
+            clear=True,
+        ):
+            manager = SchemaManager()
+            manager.preload_all()
+
+            schema = manager.get_schema("test_seasonal")
+            assert schema is not None
+            assert schema.available_seasons is not None
+
+            current_season = get_current_season_year()
+            expected = list(range(MIN_SEASON, current_season + 1))
+            assert schema.available_seasons == expected
