@@ -294,8 +294,11 @@ class SchemaManager:
 
         # Track which futures have been processed
         processed_futures: set[int] = set()
+        timed_out = False
 
-        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        # Don't use context manager - we need control over shutdown behavior
+        executor = ThreadPoolExecutor(max_workers=max_workers)
+        try:
             # Submit all loading tasks
             future_to_dataset = {
                 executor.submit(self._load_single_schema, name): name
@@ -310,6 +313,7 @@ class SchemaManager:
                     self._process_future_result(future, dataset_name)
             except TimeoutError:
                 # Global timeout reached - mark remaining datasets as failed
+                timed_out = True
                 logger.warning(
                     "Global preload timeout reached, marking pending datasets as failed"
                 )
@@ -320,8 +324,10 @@ class SchemaManager:
                             "(global timeout reached)"
                         )
                         self._failed_datasets.add(dataset_name)
-                        # Attempt to cancel the future (may not succeed if already running)
-                        future.cancel()
+        finally:
+            # On timeout, don't wait for running futures - return immediately
+            # On normal completion, wait for any stragglers
+            executor.shutdown(wait=not timed_out, cancel_futures=timed_out)
 
         logger.info(
             f"Schema preload complete: {len(self._schemas)} loaded, "
