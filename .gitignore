@@ -49,3 +49,7 @@ htmlcov/
 
 # mypy
 .mypy_cache/
+
+# Kaggle credentials
+kaggle.json
+.kaggle/

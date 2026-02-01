@@ -43,6 +43,12 @@ MAX_WEEK: int = 18
 # Earliest season with reliable play-by-play data
 MIN_SEASON: int = 1999
 
+# Big Data Bowl (BDB) competition settings
+BDB_COMPETITION_HANDLE: str = "nfl-big-data-bowl-2026-analytics"
+BDB_AVAILABLE_WEEKS: tuple[int, ...] = tuple(range(1, 19))  # Weeks 1-18
+DEFAULT_MAX_ROWS_TRACKING: int = 50
+MAX_ROWS_TRACKING: int = 100
+
 
 def get_current_season_year() -> int:
     """Calculate the current NFL season year based on today's date.
