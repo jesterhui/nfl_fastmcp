@@ -4,6 +4,9 @@ This module tests the schema preloading and caching functionality
 using mocked nfl_data_py calls to avoid network dependencies.
 """
 
+import json
+import logging
+import time
 from datetime import date
 from unittest.mock import MagicMock, patch
 
@@ -11,6 +14,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
+import fast_nfl_mcp.constants as constants_module
 from fast_nfl_mcp.constants import MIN_SEASON, get_current_season_year
 from fast_nfl_mcp.models import ColumnSchema, DatasetSchema
 from fast_nfl_mcp.schema_manager import (
@@ -592,8 +596,6 @@ class TestSchemaManagerSerialization:
 
     def test_column_sample_values_are_json_serializable(self) -> None:
         """Test that sample values can be JSON serialized."""
-        import json
-
         df = pd.DataFrame(
             {
                 "int_col": [1, 2, 3],
@@ -631,11 +633,6 @@ class TestGetCurrentSeasonYear:
         """Test that January returns the previous year's season."""
         with patch("fast_nfl_mcp.constants.date") as mock_date:
             mock_date.today.return_value = date(2026, 1, 15)
-            # Need to reimport to pick up the patched date
-            # Re-execute the function with the mock in place
-            import fast_nfl_mcp.constants as constants_module
-            from fast_nfl_mcp.constants import get_current_season_year
-
             original_date = constants_module.date
             try:
                 constants_module.date = mock_date
@@ -649,8 +646,6 @@ class TestGetCurrentSeasonYear:
         """Test that February (Super Bowl time) returns previous year's season."""
         with patch("fast_nfl_mcp.constants.date") as mock_date:
             mock_date.today.return_value = date(2026, 2, 12)
-            import fast_nfl_mcp.constants as constants_module
-
             original_date = constants_module.date
             try:
                 constants_module.date = mock_date
@@ -664,8 +659,6 @@ class TestGetCurrentSeasonYear:
         """Test that August (pre-season) returns previous year's season."""
         with patch("fast_nfl_mcp.constants.date") as mock_date:
             mock_date.today.return_value = date(2026, 8, 31)
-            import fast_nfl_mcp.constants as constants_module
-
             original_date = constants_module.date
             try:
                 constants_module.date = mock_date
@@ -679,8 +672,6 @@ class TestGetCurrentSeasonYear:
         """Test that September (season start) returns current year's season."""
         with patch("fast_nfl_mcp.constants.date") as mock_date:
             mock_date.today.return_value = date(2026, 9, 1)
-            import fast_nfl_mcp.constants as constants_module
-
             original_date = constants_module.date
             try:
                 constants_module.date = mock_date
@@ -694,8 +685,6 @@ class TestGetCurrentSeasonYear:
         """Test that December (mid-season) returns current year's season."""
         with patch("fast_nfl_mcp.constants.date") as mock_date:
             mock_date.today.return_value = date(2026, 12, 15)
-            import fast_nfl_mcp.constants as constants_module
-
             original_date = constants_module.date
             try:
                 constants_module.date = mock_date
@@ -709,8 +698,6 @@ class TestGetCurrentSeasonYear:
         """Test that November returns current year's season."""
         with patch("fast_nfl_mcp.constants.date") as mock_date:
             mock_date.today.return_value = date(2026, 11, 20)
-            import fast_nfl_mcp.constants as constants_module
-
             original_date = constants_module.date
             try:
                 constants_module.date = mock_date
@@ -804,3 +791,195 @@ class TestDynamicSeasonInSchemaManager:
             current_season = get_current_season_year()
             expected = list(range(MIN_SEASON, current_season + 1))
             assert schema.available_seasons == expected
+
+
+class TestSchemaManagerTimeoutHandling:
+    """Tests for preload timeout handling behavior."""
+
+    def test_preload_completes_without_raising_on_global_timeout(self) -> None:
+        """Test that preload_all completes without raising when global timeout is reached."""
+
+        def slow_loader(_: object) -> pd.DataFrame:
+            """A loader that takes too long."""
+            time.sleep(2.0)  # Takes 2 seconds
+            return pd.DataFrame({"col": [1, 2, 3]})
+
+        with patch.dict(
+            "fast_nfl_mcp.schema_manager.DATASET_DEFINITIONS",
+            {
+                "slow_dataset": (
+                    slow_loader,
+                    "Takes too long",
+                    False,
+                ),
+            },
+            clear=True,
+        ):
+            manager = SchemaManager()
+            # Use a very short timeout to trigger global timeout
+            # This should NOT raise - just mark the dataset as failed
+            manager.preload_all(max_workers=1, timeout=0.1)
+
+            # Should have completed without raising
+            assert "slow_dataset" in manager.get_failed_datasets()
+            assert manager.get_schema("slow_dataset") is None
+            assert not manager.is_loaded("slow_dataset")
+
+    def test_preload_marks_pending_datasets_as_failed_on_timeout(self) -> None:
+        """Test that pending datasets are added to _failed_datasets on timeout."""
+        call_count = {"fast": 0, "slow": 0}
+
+        def fast_loader(_: object) -> pd.DataFrame:
+            """A loader that completes quickly."""
+            call_count["fast"] += 1
+            return pd.DataFrame({"col": [1, 2, 3]})
+
+        def slow_loader(_: object) -> pd.DataFrame:
+            """A loader that takes too long."""
+            call_count["slow"] += 1
+            time.sleep(5.0)  # Takes 5 seconds
+            return pd.DataFrame({"col": [1, 2, 3]})
+
+        with patch.dict(
+            "fast_nfl_mcp.schema_manager.DATASET_DEFINITIONS",
+            {
+                "fast_dataset": (
+                    fast_loader,
+                    "Fast one",
+                    False,
+                ),
+                "slow_dataset": (
+                    slow_loader,
+                    "Slow one",
+                    False,
+                ),
+            },
+            clear=True,
+        ):
+            manager = SchemaManager()
+            # Use timeout that allows fast dataset but not slow one
+            manager.preload_all(max_workers=2, timeout=0.5)
+
+            # Fast dataset should have loaded
+            assert manager.is_loaded("fast_dataset")
+
+            # Slow dataset should be marked as failed
+            assert "slow_dataset" in manager.get_failed_datasets()
+
+    def test_preload_logs_timeout_message(
+        self, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        """Test that timeout is logged appropriately."""
+
+        def slow_loader(_: object) -> pd.DataFrame:
+            """A loader that takes too long."""
+            time.sleep(2.0)
+            return pd.DataFrame({"col": [1, 2, 3]})
+
+        with patch.dict(
+            "fast_nfl_mcp.schema_manager.DATASET_DEFINITIONS",
+            {
+                "slow_dataset": (
+                    slow_loader,
+                    "Slow dataset",
+                    False,
+                ),
+            },
+            clear=True,
+        ):
+            with caplog.at_level(logging.WARNING):
+                manager = SchemaManager()
+                manager.preload_all(max_workers=1, timeout=0.1)
+
+            # Should have logged warning about global timeout
+            assert any(
+                "Global preload timeout" in record.message
+                or "Timeout loading schema" in record.message
+                for record in caplog.records
+            )
+
+    def test_preload_handles_mixed_success_and_timeout(self) -> None:
+        """Test preload handles a mix of successful and timed-out datasets."""
+
+        def fast_loader(_: object) -> pd.DataFrame:
+            return pd.DataFrame({"a": [1, 2]})
+
+        def medium_loader(_: object) -> pd.DataFrame:
+            time.sleep(0.05)
+            return pd.DataFrame({"b": [3, 4]})
+
+        def slow_loader(_: object) -> pd.DataFrame:
+            time.sleep(5.0)
+            return pd.DataFrame({"c": [5, 6]})
+
+        with patch.dict(
+            "fast_nfl_mcp.schema_manager.DATASET_DEFINITIONS",
+            {
+                "fast": (fast_loader, "Fast", False),
+                "medium": (medium_loader, "Medium", False),
+                "slow": (slow_loader, "Slow", False),
+            },
+            clear=True,
+        ):
+            manager = SchemaManager()
+            manager.preload_all(max_workers=3, timeout=0.3)
+
+            # Fast and medium should succeed
+            assert manager.is_loaded("fast")
+            assert manager.is_loaded("medium")
+
+            # Slow should fail
+            assert "slow" in manager.get_failed_datasets()
+            assert not manager.is_loaded("slow")
+
+    def test_preload_reports_correct_counts_after_timeout(self) -> None:
+        """Test that loaded and failed counts are correct after timeout."""
+
+        def fast_loader(_: object) -> pd.DataFrame:
+            return pd.DataFrame({"col": [1]})
+
+        def slow_loader(_: object) -> pd.DataFrame:
+            time.sleep(3.0)
+            return pd.DataFrame({"col": [2]})
+
+        with patch.dict(
+            "fast_nfl_mcp.schema_manager.DATASET_DEFINITIONS",
+            {
+                "fast1": (fast_loader, "Fast 1", False),
+                "fast2": (fast_loader, "Fast 2", False),
+                "slow1": (slow_loader, "Slow 1", False),
+            },
+            clear=True,
+        ):
+            manager = SchemaManager()
+            manager.preload_all(max_workers=3, timeout=0.3)
+
+            # Check counts
+            assert manager.get_loaded_count() == 2
+            assert len(manager.get_failed_datasets()) == 1
+
+    def test_list_datasets_shows_timeout_as_failed(self) -> None:
+        """Test that list_datasets shows timed-out datasets as failed."""
+
+        def slow_loader(_: object) -> pd.DataFrame:
+            time.sleep(2.0)
+            return pd.DataFrame({"col": [1]})
+
+        with patch.dict(
+            "fast_nfl_mcp.schema_manager.DATASET_DEFINITIONS",
+            {
+                "timeout_dataset": (
+                    slow_loader,
+                    "Will timeout",
+                    False,
+                ),
+            },
+            clear=True,
+        ):
+            manager = SchemaManager()
+            manager.preload_all(max_workers=1, timeout=0.1)
+
+            datasets = manager.list_datasets()
+            assert len(datasets) == 1
+            assert datasets[0]["name"] == "timeout_dataset"
+            assert datasets[0]["status"] == "failed"
