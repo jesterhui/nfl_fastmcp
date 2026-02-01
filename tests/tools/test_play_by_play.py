@@ -17,8 +17,8 @@ from fast_nfl_mcp.constants import (
     MIN_WEEK,
 )
 from fast_nfl_mcp.models import ErrorResponse, SuccessResponse
-from fast_nfl_mcp.tools.play_by_play import (
-    get_play_by_play_impl,
+from fast_nfl_mcp.tools.play_by_play import get_play_by_play_impl
+from fast_nfl_mcp.tools.validation import (
     normalize_filters,
     validate_seasons,
     validate_weeks,
@@ -30,13 +30,13 @@ class TestValidateSeasons:
 
     def test_valid_seasons(self) -> None:
         """Test that valid seasons pass without warning."""
-        valid, warning = validate_seasons([2023, 2024])
+        valid, warning = validate_seasons([2023, 2024], MAX_SEASONS)
         assert valid == [2023, 2024]
         assert warning is None
 
     def test_empty_seasons(self) -> None:
         """Test that empty seasons list returns warning."""
-        valid, warning = validate_seasons([])
+        valid, warning = validate_seasons([], MAX_SEASONS)
         assert valid == []
         assert warning is not None
         assert "No seasons provided" in warning
@@ -44,7 +44,7 @@ class TestValidateSeasons:
     def test_too_many_seasons(self) -> None:
         """Test that exceeding MAX_SEASONS triggers truncation."""
         seasons = [2020, 2021, 2022, 2023, 2024]
-        valid, warning = validate_seasons(seasons)
+        valid, warning = validate_seasons(seasons, MAX_SEASONS)
         assert len(valid) == MAX_SEASONS
         assert valid == seasons[:MAX_SEASONS]
         assert warning is not None
@@ -53,13 +53,13 @@ class TestValidateSeasons:
     def test_exactly_max_seasons(self) -> None:
         """Test that exactly MAX_SEASONS passes without warning."""
         seasons = [2022, 2023, 2024]
-        valid, warning = validate_seasons(seasons)
+        valid, warning = validate_seasons(seasons, MAX_SEASONS)
         assert valid == seasons
         assert warning is None
 
     def test_invalid_old_season(self) -> None:
         """Test that seasons before MIN_SEASON are filtered out."""
-        valid, warning = validate_seasons([1990, 2023])
+        valid, warning = validate_seasons([1990, 2023], MAX_SEASONS)
         assert valid == [2023]
         assert warning is not None
         assert "Invalid seasons removed" in warning
@@ -67,19 +67,19 @@ class TestValidateSeasons:
 
     def test_all_invalid_seasons(self) -> None:
         """Test that all invalid seasons returns empty list."""
-        valid, warning = validate_seasons([1990, 1995])
+        valid, warning = validate_seasons([1990, 1995], MAX_SEASONS)
         assert valid == []
         assert warning is not None
 
     def test_single_valid_season(self) -> None:
         """Test single valid season."""
-        valid, warning = validate_seasons([2024])
+        valid, warning = validate_seasons([2024], MAX_SEASONS)
         assert valid == [2024]
         assert warning is None
 
     def test_min_valid_season(self) -> None:
         """Test minimum valid season."""
-        valid, warning = validate_seasons([MIN_SEASON])
+        valid, warning = validate_seasons([MIN_SEASON], MAX_SEASONS)
         assert valid == [MIN_SEASON]
         assert warning is None
 
