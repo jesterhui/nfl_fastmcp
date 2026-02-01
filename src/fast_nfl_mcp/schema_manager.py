@@ -7,7 +7,7 @@ column information, data types, sample values, and available seasons.
 
 import logging
 from collections.abc import Callable
-from concurrent.futures import ThreadPoolExecutor, as_completed
+from concurrent.futures import Future, ThreadPoolExecutor, as_completed
 from typing import Any
 
 import nfl_data_py as nfl
@@ -283,11 +283,17 @@ class SchemaManager:
         in parallel using a thread pool. Failed datasets are tracked
         and can be queried later.
 
+        This method never raises on timeout - instead, pending datasets
+        are marked as failed and logged.
+
         Args:
             max_workers: Maximum number of parallel workers (default 4).
-            timeout: Maximum time in seconds for each dataset load (default 60).
+            timeout: Maximum time in seconds for the overall preload operation (default 60).
         """
         logger.info(f"Starting schema preload for {len(DATASET_DEFINITIONS)} datasets")
+
+        # Track which futures have been processed
+        processed_futures: set[int] = set()
 
         with ThreadPoolExecutor(max_workers=max_workers) as executor:
             # Submit all loading tasks
@@ -296,37 +302,64 @@ class SchemaManager:
                 for name in DATASET_DEFINITIONS
             }
 
-            # Collect results as they complete
-            for future in as_completed(future_to_dataset, timeout=timeout):
-                dataset_name = future_to_dataset[future]
-                try:
-                    schema = future.result(timeout=timeout)
-                    if schema is not None:
-                        self._schemas[dataset_name] = schema
-                    else:
+            try:
+                # Collect results as they complete
+                for future in as_completed(future_to_dataset, timeout=timeout):
+                    processed_futures.add(id(future))
+                    dataset_name = future_to_dataset[future]
+                    self._process_future_result(future, dataset_name)
+            except TimeoutError:
+                # Global timeout reached - mark remaining datasets as failed
+                logger.warning(
+                    "Global preload timeout reached, marking pending datasets as failed"
+                )
+                for future, dataset_name in future_to_dataset.items():
+                    if id(future) not in processed_futures:
+                        logger.error(
+                            f"Timeout loading schema for {dataset_name} "
+                            "(global timeout reached)"
+                        )
                         self._failed_datasets.add(dataset_name)
-                except TimeoutError:
-                    logger.error(f"Timeout loading schema for {dataset_name}")
-                    self._failed_datasets.add(dataset_name)
-                except (
-                    OSError,
-                    ConnectionError,
-                    ValueError,
-                    KeyError,
-                    RuntimeError,
-                ) as e:
-                    # Expected failure modes from data loading
-                    logger.error(f"Error loading schema for {dataset_name}: {e}")
-                    self._failed_datasets.add(dataset_name)
-                except Exception as e:
-                    # Catch-all for unexpected errors
-                    logger.error(f"Error loading schema for {dataset_name}: {e}")
-                    self._failed_datasets.add(dataset_name)
+                        # Attempt to cancel the future (may not succeed if already running)
+                        future.cancel()
 
         logger.info(
             f"Schema preload complete: {len(self._schemas)} loaded, "
             f"{len(self._failed_datasets)} failed"
         )
+
+    def _process_future_result(
+        self, future: "Future[DatasetSchema | None]", dataset_name: str
+    ) -> None:
+        """Process the result of a completed future.
+
+        Args:
+            future: The completed Future object.
+            dataset_name: The name of the dataset this future was loading.
+        """
+        try:
+            schema = future.result(timeout=0)  # Already complete, no wait needed
+            if schema is not None:
+                self._schemas[dataset_name] = schema
+            else:
+                self._failed_datasets.add(dataset_name)
+        except TimeoutError:
+            logger.error(f"Timeout loading schema for {dataset_name}")
+            self._failed_datasets.add(dataset_name)
+        except (
+            OSError,
+            ConnectionError,
+            ValueError,
+            KeyError,
+            RuntimeError,
+        ) as e:
+            # Expected failure modes from data loading
+            logger.error(f"Error loading schema for {dataset_name}: {e}")
+            self._failed_datasets.add(dataset_name)
+        except Exception as e:
+            # Catch-all for unexpected errors
+            logger.error(f"Error loading schema for {dataset_name}: {e}")
+            self._failed_datasets.add(dataset_name)
 
     def get_schema(self, dataset: str) -> DatasetSchema | None:
         """Retrieve the cached schema for a dataset.

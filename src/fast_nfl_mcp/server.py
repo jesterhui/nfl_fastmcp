@@ -14,11 +14,7 @@ from pydantic import Field
 
 from fast_nfl_mcp.models import ErrorResponse, SuccessResponse
 from fast_nfl_mcp.schema_manager import SchemaManager
-from fast_nfl_mcp.tools.next_gen import (
-    get_ngs_passing_impl,
-    get_ngs_receiving_impl,
-    get_ngs_rushing_impl,
-)
+from fast_nfl_mcp.tools.draft import get_draft_picks_impl
 from fast_nfl_mcp.tools.play_by_play import get_play_by_play_impl
 from fast_nfl_mcp.tools.player_stats import (
     get_seasonal_stats_impl,
