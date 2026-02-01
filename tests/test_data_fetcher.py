@@ -955,3 +955,435 @@ class TestDataFetcherColumnSelection:
 
             assert isinstance(response, SuccessResponse)
             assert set(response.metadata.columns) == {"col1", "col2"}
+
+
+class TestDataFetcherApplyFilters:
+    """Tests for _apply_filters method."""
+
+    def test_apply_filters_with_valid_keys(self) -> None:
+        """Test _apply_filters with valid column keys."""
+        fetcher = DataFetcher()
+        df = pd.DataFrame(
+            {
+                "team": ["KC", "SF", "KC", "DET"],
+                "week": [1, 1, 2, 1],
+                "score": [28, 21, 35, 17],
+            }
+        )
+
+        result = fetcher._apply_filters(df, {"team": ["KC"]})
+
+        assert len(result) == 2
+        assert all(result["team"] == "KC")
+
+    def test_apply_filters_with_multiple_valid_keys(self) -> None:
+        """Test _apply_filters with multiple valid column keys."""
+        fetcher = DataFetcher()
+        df = pd.DataFrame(
+            {
+                "team": ["KC", "SF", "KC", "DET", "KC"],
+                "week": [1, 1, 2, 1, 1],
+                "score": [28, 21, 35, 17, 31],
+            }
+        )
+
+        result = fetcher._apply_filters(df, {"team": ["KC"], "week": [1]})
+
+        assert len(result) == 2
+        assert all(result["team"] == "KC")
+        assert all(result["week"] == 1)
+
+    def test_apply_filters_with_multiple_values(self) -> None:
+        """Test _apply_filters with multiple values for a single key."""
+        fetcher = DataFetcher()
+        df = pd.DataFrame(
+            {
+                "team": ["KC", "SF", "BUF", "DET"],
+                "score": [28, 21, 35, 17],
+            }
+        )
+
+        result = fetcher._apply_filters(df, {"team": ["KC", "SF"]})
+
+        assert len(result) == 2
+        assert set(result["team"]) == {"KC", "SF"}
+
+    def test_apply_filters_with_nonexistent_key(self) -> None:
+        """Test _apply_filters with a key not present in the DataFrame."""
+        fetcher = DataFetcher()
+        df = pd.DataFrame(
+            {
+                "team": ["KC", "SF", "BUF"],
+                "score": [28, 21, 35],
+            }
+        )
+
+        # Filter on a column that doesn't exist should be ignored
+        result = fetcher._apply_filters(df, {"nonexistent": ["value"]})
+
+        # All rows should remain since the filter was ignored
+        assert len(result) == 3
+
+    def test_apply_filters_with_mixed_valid_invalid_keys(self) -> None:
+        """Test _apply_filters with both valid and invalid column keys."""
+        fetcher = DataFetcher()
+        df = pd.DataFrame(
+            {
+                "team": ["KC", "SF", "BUF", "DET"],
+                "week": [1, 1, 2, 1],
+            }
+        )
+
+        # "team" is valid, "nonexistent" is not
+        result = fetcher._apply_filters(
+            df, {"team": ["KC", "SF"], "nonexistent": ["value"]}
+        )
+
+        # Should filter by team only, ignoring nonexistent
+        assert len(result) == 2
+        assert set(result["team"]) == {"KC", "SF"}
+
+    def test_apply_filters_with_empty_filters(self) -> None:
+        """Test _apply_filters with empty filters dict."""
+        fetcher = DataFetcher()
+        df = pd.DataFrame({"team": ["KC", "SF"], "score": [28, 21]})
+
+        result = fetcher._apply_filters(df, {})
+
+        assert len(result) == 2
+
+    def test_apply_filters_no_matching_values(self) -> None:
+        """Test _apply_filters when filter values don't match any rows."""
+        fetcher = DataFetcher()
+        df = pd.DataFrame(
+            {
+                "team": ["KC", "SF", "BUF"],
+                "score": [28, 21, 35],
+            }
+        )
+
+        result = fetcher._apply_filters(df, {"team": ["NYG", "NYJ"]})
+
+        assert len(result) == 0
+
+
+class TestDataFetcherFiltersViaFetch:
+    """Tests for filter behavior via the fetch method."""
+
+    def test_fetch_with_filters_returns_filtered_data(self) -> None:
+        """Test that fetch applies filters correctly."""
+        df = pd.DataFrame(
+            {
+                "team": ["KC", "SF", "KC", "DET"],
+                "week": [1, 1, 2, 1],
+                "score": [28, 21, 35, 17],
+            }
+        )
+
+        with patch.dict(
+            "fast_nfl_mcp.data_fetcher.DATASET_DEFINITIONS",
+            {
+                "test": (lambda _: df, "Test", True, 2024),
+            },
+            clear=True,
+        ):
+            fetcher = DataFetcher()
+            response = fetcher.fetch("test", filters={"team": ["KC"]})
+
+            assert isinstance(response, SuccessResponse)
+            assert len(response.data) == 2
+            assert all(row["team"] == "KC" for row in response.data)
+
+    def test_fetch_filters_produce_empty_results_warning(self) -> None:
+        """Test that filters producing no matches return a warning."""
+        df = pd.DataFrame(
+            {
+                "team": ["KC", "SF", "BUF"],
+                "score": [28, 21, 35],
+            }
+        )
+
+        with patch.dict(
+            "fast_nfl_mcp.data_fetcher.DATASET_DEFINITIONS",
+            {
+                "test": (lambda _: df, "Test", True, 2024),
+            },
+            clear=True,
+        ):
+            fetcher = DataFetcher()
+            response = fetcher.fetch("test", filters={"team": ["NYG"]})
+
+            assert isinstance(response, SuccessResponse)
+            assert response.data == []
+            assert response.metadata.total_available == 0
+            assert response.warning is not None
+            assert "No data matched" in response.warning
+
+    def test_fetch_filters_with_nonexistent_column(self) -> None:
+        """Test that filters on nonexistent columns are ignored."""
+        df = pd.DataFrame(
+            {
+                "team": ["KC", "SF"],
+                "score": [28, 21],
+            }
+        )
+
+        with patch.dict(
+            "fast_nfl_mcp.data_fetcher.DATASET_DEFINITIONS",
+            {
+                "test": (lambda _: df, "Test", True, 2024),
+            },
+            clear=True,
+        ):
+            fetcher = DataFetcher()
+            response = fetcher.fetch("test", filters={"nonexistent_col": ["value"]})
+
+            assert isinstance(response, SuccessResponse)
+            # All rows should be returned since filter was on nonexistent column
+            assert len(response.data) == 2
+
+    def test_fetch_filters_empty_dict(self) -> None:
+        """Test fetch with empty filters dict."""
+        df = pd.DataFrame({"col": [1, 2, 3]})
+
+        with patch.dict(
+            "fast_nfl_mcp.data_fetcher.DATASET_DEFINITIONS",
+            {
+                "test": (lambda _: df, "Test", True, 2024),
+            },
+            clear=True,
+        ):
+            fetcher = DataFetcher()
+            response = fetcher.fetch("test", filters={})
+
+            assert isinstance(response, SuccessResponse)
+            assert len(response.data) == 3
+
+    def test_fetch_filters_columns_preserved(self) -> None:
+        """Test that columns metadata is preserved when filters produce empty results."""
+        df = pd.DataFrame(
+            {
+                "team": ["KC", "SF"],
+                "week": [1, 1],
+                "score": [28, 21],
+            }
+        )
+
+        with patch.dict(
+            "fast_nfl_mcp.data_fetcher.DATASET_DEFINITIONS",
+            {
+                "test": (lambda _: df, "Test", True, 2024),
+            },
+            clear=True,
+        ):
+            fetcher = DataFetcher()
+            response = fetcher.fetch("test", filters={"team": ["NYG"]})
+
+            assert isinstance(response, SuccessResponse)
+            # Columns should still be available in metadata
+            assert response.metadata.columns is not None
+            assert set(response.metadata.columns) == {"team", "week", "score"}
+
+
+class TestDataFetcherConvertDataframeToRecords:
+    """Tests for _convert_dataframe_to_records method edge cases."""
+
+    def test_convert_empty_dataframe(self) -> None:
+        """Test converting an empty DataFrame."""
+        fetcher = DataFetcher()
+        df = pd.DataFrame()
+
+        records, columns = fetcher._convert_dataframe_to_records(df)
+
+        assert records == []
+        assert columns == []
+
+    def test_convert_none_dataframe(self) -> None:
+        """Test converting None input."""
+        fetcher = DataFetcher()
+
+        records, columns = fetcher._convert_dataframe_to_records(None)  # type: ignore[arg-type]
+
+        assert records == []
+        assert columns == []
+
+    def test_convert_np_nan_to_none(self) -> None:
+        """Test that np.nan is converted to None."""
+        fetcher = DataFetcher()
+        df = pd.DataFrame({"col": [1.0, np.nan, 3.0]})
+
+        records, _ = fetcher._convert_dataframe_to_records(df)
+
+        assert records[0]["col"] == 1.0
+        assert records[1]["col"] is None
+        assert records[2]["col"] == 3.0
+
+    def test_convert_pd_na_to_none(self) -> None:
+        """Test that pd.NA is converted to None."""
+        fetcher = DataFetcher()
+        df = pd.DataFrame({"col": pd.array([1, pd.NA, 3], dtype="Int64")})
+
+        records, _ = fetcher._convert_dataframe_to_records(df)
+
+        assert records[0]["col"] == 1
+        assert records[1]["col"] is None
+        assert records[2]["col"] == 3
+
+    def test_convert_none_in_object_column(self) -> None:
+        """Test that Python None in object columns is preserved."""
+        fetcher = DataFetcher()
+        df = pd.DataFrame({"col": ["a", None, "c"]})
+
+        records, _ = fetcher._convert_dataframe_to_records(df)
+
+        assert records[0]["col"] == "a"
+        assert records[1]["col"] is None
+        assert records[2]["col"] == "c"
+
+    def test_convert_numpy_int32_to_python_int(self) -> None:
+        """Test that numpy int32 is converted to Python int."""
+        fetcher = DataFetcher()
+        df = pd.DataFrame({"col": np.array([1, 2, 3], dtype=np.int32)})
+
+        records, _ = fetcher._convert_dataframe_to_records(df)
+
+        assert records[0]["col"] == 1
+        assert isinstance(records[0]["col"], int)
+
+    def test_convert_numpy_int64_to_python_int(self) -> None:
+        """Test that numpy int64 is converted to Python int."""
+        fetcher = DataFetcher()
+        df = pd.DataFrame({"col": np.array([1, 2, 3], dtype=np.int64)})
+
+        records, _ = fetcher._convert_dataframe_to_records(df)
+
+        assert records[0]["col"] == 1
+        assert isinstance(records[0]["col"], int)
+
+    def test_convert_numpy_float32_to_python_float(self) -> None:
+        """Test that numpy float32 is converted to Python float."""
+        fetcher = DataFetcher()
+        df = pd.DataFrame({"col": np.array([1.5, 2.5, 3.5], dtype=np.float32)})
+
+        records, _ = fetcher._convert_dataframe_to_records(df)
+
+        assert isinstance(records[0]["col"], float)
+        assert abs(records[0]["col"] - 1.5) < 0.01
+
+    def test_convert_numpy_float64_to_python_float(self) -> None:
+        """Test that numpy float64 is converted to Python float."""
+        fetcher = DataFetcher()
+        df = pd.DataFrame({"col": np.array([1.5, 2.5, 3.5], dtype=np.float64)})
+
+        records, _ = fetcher._convert_dataframe_to_records(df)
+
+        assert records[0]["col"] == 1.5
+        assert isinstance(records[0]["col"], float)
+
+    def test_convert_numpy_bool_to_python_bool(self) -> None:
+        """Test that numpy bool is converted to Python bool."""
+        fetcher = DataFetcher()
+        df = pd.DataFrame({"col": np.array([True, False, True], dtype=np.bool_)})
+
+        records, _ = fetcher._convert_dataframe_to_records(df)
+
+        assert records[0]["col"] is True
+        assert records[1]["col"] is False
+        assert isinstance(records[0]["col"], bool)
+
+    def test_convert_timestamp_to_string(self) -> None:
+        """Test that pd.Timestamp is converted to string."""
+        fetcher = DataFetcher()
+        df = pd.DataFrame(
+            {"col": pd.to_datetime(["2024-01-15", "2024-06-30", "2024-12-25"])}
+        )
+
+        records, _ = fetcher._convert_dataframe_to_records(df)
+
+        assert isinstance(records[0]["col"], str)
+        assert "2024-01-15" in records[0]["col"]
+        assert "2024-06-30" in records[1]["col"]
+
+    def test_convert_timestamp_with_time(self) -> None:
+        """Test that pd.Timestamp with time component is converted to string."""
+        fetcher = DataFetcher()
+        df = pd.DataFrame(
+            {"col": pd.to_datetime(["2024-01-15 14:30:00", "2024-06-30 08:00:00"])}
+        )
+
+        records, _ = fetcher._convert_dataframe_to_records(df)
+
+        assert isinstance(records[0]["col"], str)
+        assert "2024-01-15" in records[0]["col"]
+        assert "14:30" in records[0]["col"]
+
+    def test_convert_timestamp_nat_to_none(self) -> None:
+        """Test that pd.NaT (Not a Time) is converted to None."""
+        fetcher = DataFetcher()
+        df = pd.DataFrame({"col": pd.to_datetime(["2024-01-15", pd.NaT, "2024-12-25"])})
+
+        records, _ = fetcher._convert_dataframe_to_records(df)
+
+        assert isinstance(records[0]["col"], str)
+        assert records[1]["col"] is None
+        assert isinstance(records[2]["col"], str)
+
+    def test_columns_converted_to_strings(self) -> None:
+        """Test that column names are converted to strings."""
+        fetcher = DataFetcher()
+        # DataFrame with integer column names
+        df = pd.DataFrame({0: [1, 2], 1: [3, 4]})
+
+        _, columns = fetcher._convert_dataframe_to_records(df)
+
+        assert columns == ["0", "1"]
+        assert all(isinstance(c, str) for c in columns)
+
+    def test_mixed_types_in_dataframe(self) -> None:
+        """Test conversion with mixed types in a single DataFrame."""
+        fetcher = DataFetcher()
+        df = pd.DataFrame(
+            {
+                "int_col": np.array([1, 2], dtype=np.int64),
+                "float_col": np.array([1.5, np.nan], dtype=np.float64),
+                "str_col": ["a", "b"],
+                "date_col": pd.to_datetime(["2024-01-01", pd.NaT]),
+                "bool_col": np.array([True, False], dtype=np.bool_),
+            }
+        )
+
+        records, columns = fetcher._convert_dataframe_to_records(df)
+
+        assert len(records) == 2
+        assert len(columns) == 5
+
+        # First row
+        assert isinstance(records[0]["int_col"], int)
+        assert isinstance(records[0]["float_col"], float)
+        assert records[0]["str_col"] == "a"
+        assert isinstance(records[0]["date_col"], str)
+        assert isinstance(records[0]["bool_col"], bool)
+
+        # Second row (with None values)
+        assert records[1]["float_col"] is None
+        assert records[1]["date_col"] is None
+
+    def test_json_serializable_output(self) -> None:
+        """Test that the converted records are JSON serializable."""
+        fetcher = DataFetcher()
+        df = pd.DataFrame(
+            {
+                "int_col": np.array([1, 2], dtype=np.int64),
+                "float_col": np.array([1.5, np.nan], dtype=np.float64),
+                "str_col": ["a", "b"],
+                "date_col": pd.to_datetime(["2024-01-01", pd.NaT]),
+            }
+        )
+
+        records, _ = fetcher._convert_dataframe_to_records(df)
+
+        # Should not raise - validates JSON serialization
+        json_str = json.dumps(records)
+        assert isinstance(json_str, str)
+        parsed = json.loads(json_str)
+        assert len(parsed) == 2
