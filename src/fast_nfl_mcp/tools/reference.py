@@ -15,7 +15,6 @@ from fast_nfl_mcp.constants import (
     LOOKUP_PLAYER_DEFAULT_LIMIT,
     LOOKUP_PLAYER_MAX_LIMIT,
 )
-from fast_nfl_mcp.data_fetcher import DataFetcher
 from fast_nfl_mcp.enums import DatasetName
 from fast_nfl_mcp.models import (
     ErrorResponse,
@@ -23,6 +22,7 @@ from fast_nfl_mcp.models import (
     create_error_response,
     create_success_response,
 )
+from fast_nfl_mcp.nfl_data_py_fetcher import NFLDataPyFetcher
 from fast_nfl_mcp.schema_manager import DATASET_DEFINITIONS
 from fast_nfl_mcp.serialization import convert_value
 
@@ -46,7 +46,7 @@ def get_player_ids_impl(
         SuccessResponse with player ID mappings (up to 100 rows by default),
         or ErrorResponse on failure.
     """
-    fetcher = DataFetcher()
+    fetcher = NFLDataPyFetcher()
     return fetcher.fetch(
         "player_ids",
         offset=offset,
@@ -71,7 +71,7 @@ def get_team_descriptions_impl(
         SuccessResponse with team descriptions (up to 100 rows by default),
         or ErrorResponse on failure.
     """
-    fetcher = DataFetcher()
+    fetcher = NFLDataPyFetcher()
     return fetcher.fetch(
         "team_descriptions",
         offset=offset,
@@ -96,7 +96,7 @@ def get_officials_impl(
         SuccessResponse with officials data (up to 100 rows by default),
         or ErrorResponse on failure.
     """
-    fetcher = DataFetcher()
+    fetcher = NFLDataPyFetcher()
     return fetcher.fetch(
         "officials",
         offset=offset,
@@ -121,7 +121,7 @@ def get_contracts_impl(
         SuccessResponse with contract data (up to 100 rows by default),
         or ErrorResponse on failure.
     """
-    fetcher = DataFetcher()
+    fetcher = NFLDataPyFetcher()
     return fetcher.fetch(
         "contracts",
         offset=offset,

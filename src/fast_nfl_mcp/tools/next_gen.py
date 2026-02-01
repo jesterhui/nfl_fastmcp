@@ -8,12 +8,12 @@ advanced tracking metrics captured by on-field sensors.
 from typing import Any
 
 from fast_nfl_mcp.constants import MAX_SEASONS_NGS, MIN_SEASON_NGS
-from fast_nfl_mcp.data_fetcher import DataFetcher
 from fast_nfl_mcp.models import (
     ErrorResponse,
     SuccessResponse,
     create_success_response,
 )
+from fast_nfl_mcp.nfl_data_py_fetcher import NFLDataPyFetcher
 from fast_nfl_mcp.tools.validation import normalize_filters
 from fast_nfl_mcp.utils import add_warnings_to_response
 
@@ -109,7 +109,7 @@ def get_ngs_passing_impl(
     combined_filters = normalize_filters(filters)
 
     # Fetch the data using generic fetch with filters and pagination
-    fetcher = DataFetcher()
+    fetcher = NFLDataPyFetcher()
     result = fetcher.fetch(
         "ngs_passing",
         {"seasons": valid_seasons},
@@ -169,7 +169,7 @@ def get_ngs_rushing_impl(
     combined_filters = normalize_filters(filters)
 
     # Fetch the data using generic fetch with filters and pagination
-    fetcher = DataFetcher()
+    fetcher = NFLDataPyFetcher()
     result = fetcher.fetch(
         "ngs_rushing",
         {"seasons": valid_seasons},
@@ -229,7 +229,7 @@ def get_ngs_receiving_impl(
     combined_filters = normalize_filters(filters)
 
     # Fetch the data using generic fetch with filters and pagination
-    fetcher = DataFetcher()
+    fetcher = NFLDataPyFetcher()
     result = fetcher.fetch(
         "ngs_receiving",
         {"seasons": valid_seasons},

@@ -7,12 +7,12 @@ with historical draft information.
 from typing import Any
 
 from fast_nfl_mcp.constants import MAX_SEASONS_DRAFT
-from fast_nfl_mcp.data_fetcher import DataFetcher
 from fast_nfl_mcp.models import (
     ErrorResponse,
     SuccessResponse,
     create_success_response,
 )
+from fast_nfl_mcp.nfl_data_py_fetcher import NFLDataPyFetcher
 from fast_nfl_mcp.tools.validation import normalize_filters, validate_seasons
 from fast_nfl_mcp.utils import add_warnings_to_response
 
@@ -59,7 +59,7 @@ def get_draft_picks_impl(
     combined_filters = normalize_filters(filters)
 
     # Fetch the data using generic fetch with filters and pagination
-    fetcher = DataFetcher()
+    fetcher = NFLDataPyFetcher()
     result = fetcher.fetch(
         "draft_picks",
         {"seasons": valid_seasons},

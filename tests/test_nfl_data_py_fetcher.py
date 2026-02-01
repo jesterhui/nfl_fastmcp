@@ -1,4 +1,4 @@
-"""Tests for the DataFetcher.
+"""Tests for the NFLDataPyFetcher.
 
 This module tests the data fetching functionality including error handling,
 row limits, and response formatting using mocked nfl_data_py calls.
@@ -12,35 +12,35 @@ import pandas as pd
 import pytest
 
 from fast_nfl_mcp.constants import DEFAULT_MAX_ROWS, get_current_season_year
-from fast_nfl_mcp.data_fetcher import DataFetcher
 from fast_nfl_mcp.models import ErrorResponse, SuccessResponse
+from fast_nfl_mcp.nfl_data_py_fetcher import NFLDataPyFetcher
 from fast_nfl_mcp.types import DatasetDefinition
 
 
-class TestDataFetcherInit:
-    """Tests for DataFetcher initialization."""
+class TestNFLDataPyFetcherInit:
+    """Tests for NFLDataPyFetcher initialization."""
 
     def test_default_max_rows(self) -> None:
         """Test that default MAX_ROWS matches the constant."""
-        fetcher = DataFetcher()
+        fetcher = NFLDataPyFetcher()
         assert fetcher._max_rows == DEFAULT_MAX_ROWS
 
     def test_custom_max_rows(self) -> None:
         """Test that custom max_rows can be set."""
-        fetcher = DataFetcher(max_rows=50)
+        fetcher = NFLDataPyFetcher(max_rows=50)
         assert fetcher._max_rows == 50
 
     def test_max_rows_class_constant(self) -> None:
         """Test that MAX_ROWS class constant matches the constant."""
-        assert DataFetcher.MAX_ROWS == DEFAULT_MAX_ROWS
+        assert NFLDataPyFetcher.MAX_ROWS == DEFAULT_MAX_ROWS
 
 
-class TestDataFetcherGetAvailableDatasets:
+class TestNFLDataPyFetcherGetAvailableDatasets:
     """Tests for get_available_datasets method."""
 
     def test_returns_sorted_list(self) -> None:
         """Test that available datasets are returned sorted."""
-        fetcher = DataFetcher()
+        fetcher = NFLDataPyFetcher()
         datasets = fetcher.get_available_datasets()
 
         assert isinstance(datasets, list)
@@ -48,7 +48,7 @@ class TestDataFetcherGetAvailableDatasets:
 
     def test_contains_expected_datasets(self) -> None:
         """Test that expected datasets are in the list."""
-        fetcher = DataFetcher()
+        fetcher = NFLDataPyFetcher()
         datasets = fetcher.get_available_datasets()
 
         expected = [
@@ -62,12 +62,12 @@ class TestDataFetcherGetAvailableDatasets:
             assert ds in datasets
 
 
-class TestDataFetcherGetDatasetInfo:
+class TestNFLDataPyFetcherGetDatasetInfo:
     """Tests for get_dataset_info method."""
 
     def test_returns_info_for_valid_dataset(self) -> None:
         """Test that info is returned for a valid dataset."""
-        fetcher = DataFetcher()
+        fetcher = NFLDataPyFetcher()
         info = fetcher.get_dataset_info("play_by_play")
 
         assert info is not None
@@ -78,14 +78,14 @@ class TestDataFetcherGetDatasetInfo:
 
     def test_returns_none_for_invalid_dataset(self) -> None:
         """Test that None is returned for invalid dataset."""
-        fetcher = DataFetcher()
+        fetcher = NFLDataPyFetcher()
         info = fetcher.get_dataset_info("nonexistent_dataset")
 
         assert info is None
 
     def test_non_seasonal_dataset_info(self) -> None:
         """Test info for a non-seasonal dataset."""
-        fetcher = DataFetcher()
+        fetcher = NFLDataPyFetcher()
         info = fetcher.get_dataset_info("team_descriptions")
 
         assert info is not None
@@ -93,12 +93,12 @@ class TestDataFetcherGetDatasetInfo:
         assert info["default_season"] is None
 
 
-class TestDataFetcherFetchUnknownDataset:
+class TestNFLDataPyFetcherFetchUnknownDataset:
     """Tests for fetch with unknown dataset names."""
 
     def test_unknown_dataset_returns_error(self) -> None:
         """Test that unknown dataset returns an ErrorResponse."""
-        fetcher = DataFetcher()
+        fetcher = NFLDataPyFetcher()
         response = fetcher.fetch("nonexistent_dataset")
 
         assert isinstance(response, ErrorResponse)
@@ -108,14 +108,14 @@ class TestDataFetcherFetchUnknownDataset:
 
     def test_unknown_dataset_lists_valid_datasets(self) -> None:
         """Test that error message includes valid dataset names."""
-        fetcher = DataFetcher()
+        fetcher = NFLDataPyFetcher()
         response = fetcher.fetch("bad_dataset")
 
         assert isinstance(response, ErrorResponse)
         assert "play_by_play" in response.error
 
 
-class TestDataFetcherFetchWithMocks:
+class TestNFLDataPyFetcherFetchWithMocks:
     """Tests for fetch method with mocked nfl_data_py calls."""
 
     @pytest.fixture
@@ -143,7 +143,7 @@ class TestDataFetcherFetchWithMocks:
     def test_successful_fetch(self, sample_dataframe: pd.DataFrame) -> None:
         """Test successful data fetch returns SuccessResponse."""
         with patch.dict(
-            "fast_nfl_mcp.data_fetcher.DATASET_DEFINITIONS",
+            "fast_nfl_mcp.nfl_data_py_fetcher.DATASET_DEFINITIONS",
             {
                 "test_dataset": DatasetDefinition(
                     loader=lambda _: sample_dataframe,
@@ -153,7 +153,7 @@ class TestDataFetcherFetchWithMocks:
             },
             clear=True,
         ):
-            fetcher = DataFetcher()
+            fetcher = NFLDataPyFetcher()
             response = fetcher.fetch("test_dataset")
 
             assert isinstance(response, SuccessResponse)
@@ -172,7 +172,7 @@ class TestDataFetcherFetchWithMocks:
             return sample_dataframe
 
         with patch.dict(
-            "fast_nfl_mcp.data_fetcher.DATASET_DEFINITIONS",
+            "fast_nfl_mcp.nfl_data_py_fetcher.DATASET_DEFINITIONS",
             {
                 "test_dataset": DatasetDefinition(
                     loader=mock_loader,
@@ -182,7 +182,7 @@ class TestDataFetcherFetchWithMocks:
             },
             clear=True,
         ):
-            fetcher = DataFetcher()
+            fetcher = NFLDataPyFetcher()
             fetcher.fetch("test_dataset", {"seasons": [2023, 2024]})
 
             assert loader_called_with == [[2023, 2024]]
@@ -196,7 +196,7 @@ class TestDataFetcherFetchWithMocks:
             return sample_dataframe
 
         with patch.dict(
-            "fast_nfl_mcp.data_fetcher.DATASET_DEFINITIONS",
+            "fast_nfl_mcp.nfl_data_py_fetcher.DATASET_DEFINITIONS",
             {
                 "test_dataset": DatasetDefinition(
                     loader=mock_loader,
@@ -206,7 +206,7 @@ class TestDataFetcherFetchWithMocks:
             },
             clear=True,
         ):
-            fetcher = DataFetcher()
+            fetcher = NFLDataPyFetcher()
             fetcher.fetch("test_dataset", {"seasons": 2023})
 
             assert loader_called_with == [[2023]]
@@ -214,7 +214,7 @@ class TestDataFetcherFetchWithMocks:
     def test_fetch_enforces_row_limit(self, large_dataframe: pd.DataFrame) -> None:
         """Test that fetch enforces the DEFAULT_MAX_ROWS limit."""
         with patch.dict(
-            "fast_nfl_mcp.data_fetcher.DATASET_DEFINITIONS",
+            "fast_nfl_mcp.nfl_data_py_fetcher.DATASET_DEFINITIONS",
             {
                 "test_dataset": DatasetDefinition(
                     loader=lambda _: large_dataframe,
@@ -224,7 +224,7 @@ class TestDataFetcherFetchWithMocks:
             },
             clear=True,
         ):
-            fetcher = DataFetcher()
+            fetcher = NFLDataPyFetcher()
             response = fetcher.fetch("test_dataset")
 
             assert isinstance(response, SuccessResponse)
@@ -238,7 +238,7 @@ class TestDataFetcherFetchWithMocks:
     def test_fetch_with_custom_max_rows(self, large_dataframe: pd.DataFrame) -> None:
         """Test that custom max_rows is respected."""
         with patch.dict(
-            "fast_nfl_mcp.data_fetcher.DATASET_DEFINITIONS",
+            "fast_nfl_mcp.nfl_data_py_fetcher.DATASET_DEFINITIONS",
             {
                 "test_dataset": DatasetDefinition(
                     loader=lambda _: large_dataframe,
@@ -248,7 +248,7 @@ class TestDataFetcherFetchWithMocks:
             },
             clear=True,
         ):
-            fetcher = DataFetcher(max_rows=50)
+            fetcher = NFLDataPyFetcher(max_rows=50)
             response = fetcher.fetch("test_dataset")
 
             assert isinstance(response, SuccessResponse)
@@ -262,7 +262,7 @@ class TestDataFetcherFetchWithMocks:
     ) -> None:
         """Test that column names are included in metadata."""
         with patch.dict(
-            "fast_nfl_mcp.data_fetcher.DATASET_DEFINITIONS",
+            "fast_nfl_mcp.nfl_data_py_fetcher.DATASET_DEFINITIONS",
             {
                 "test_dataset": DatasetDefinition(
                     loader=lambda _: sample_dataframe,
@@ -272,7 +272,7 @@ class TestDataFetcherFetchWithMocks:
             },
             clear=True,
         ):
-            fetcher = DataFetcher()
+            fetcher = NFLDataPyFetcher()
             response = fetcher.fetch("test_dataset")
 
             assert isinstance(response, SuccessResponse)
@@ -290,7 +290,7 @@ class TestDataFetcherFetchWithMocks:
             return sample_dataframe
 
         with patch.dict(
-            "fast_nfl_mcp.data_fetcher.DATASET_DEFINITIONS",
+            "fast_nfl_mcp.nfl_data_py_fetcher.DATASET_DEFINITIONS",
             {
                 "non_seasonal": DatasetDefinition(
                     loader=mock_loader,
@@ -300,7 +300,7 @@ class TestDataFetcherFetchWithMocks:
             },
             clear=True,
         ):
-            fetcher = DataFetcher()
+            fetcher = NFLDataPyFetcher()
             response = fetcher.fetch("non_seasonal")
 
             assert isinstance(response, SuccessResponse)
@@ -309,7 +309,7 @@ class TestDataFetcherFetchWithMocks:
     def test_fetch_with_offset(self, large_dataframe: pd.DataFrame) -> None:
         """Test that offset skips the specified number of rows."""
         with patch.dict(
-            "fast_nfl_mcp.data_fetcher.DATASET_DEFINITIONS",
+            "fast_nfl_mcp.nfl_data_py_fetcher.DATASET_DEFINITIONS",
             {
                 "test_dataset": DatasetDefinition(
                     loader=lambda _: large_dataframe,
@@ -319,7 +319,7 @@ class TestDataFetcherFetchWithMocks:
             },
             clear=True,
         ):
-            fetcher = DataFetcher()
+            fetcher = NFLDataPyFetcher()
             response = fetcher.fetch("test_dataset", offset=10)
 
             assert isinstance(response, SuccessResponse)
@@ -331,7 +331,7 @@ class TestDataFetcherFetchWithMocks:
     def test_fetch_with_limit(self, large_dataframe: pd.DataFrame) -> None:
         """Test that limit overrides the default max_rows."""
         with patch.dict(
-            "fast_nfl_mcp.data_fetcher.DATASET_DEFINITIONS",
+            "fast_nfl_mcp.nfl_data_py_fetcher.DATASET_DEFINITIONS",
             {
                 "test_dataset": DatasetDefinition(
                     loader=lambda _: large_dataframe,
@@ -341,7 +341,7 @@ class TestDataFetcherFetchWithMocks:
             },
             clear=True,
         ):
-            fetcher = DataFetcher()
+            fetcher = NFLDataPyFetcher()
             response = fetcher.fetch("test_dataset", limit=5)
 
             assert isinstance(response, SuccessResponse)
@@ -353,7 +353,7 @@ class TestDataFetcherFetchWithMocks:
     def test_fetch_with_offset_and_limit(self, large_dataframe: pd.DataFrame) -> None:
         """Test pagination with both offset and limit."""
         with patch.dict(
-            "fast_nfl_mcp.data_fetcher.DATASET_DEFINITIONS",
+            "fast_nfl_mcp.nfl_data_py_fetcher.DATASET_DEFINITIONS",
             {
                 "test_dataset": DatasetDefinition(
                     loader=lambda _: large_dataframe,
@@ -363,7 +363,7 @@ class TestDataFetcherFetchWithMocks:
             },
             clear=True,
         ):
-            fetcher = DataFetcher()
+            fetcher = NFLDataPyFetcher()
             response = fetcher.fetch("test_dataset", offset=20, limit=15)
 
             assert isinstance(response, SuccessResponse)
@@ -375,7 +375,7 @@ class TestDataFetcherFetchWithMocks:
     def test_fetch_offset_beyond_data(self, large_dataframe: pd.DataFrame) -> None:
         """Test that offset beyond data returns empty results."""
         with patch.dict(
-            "fast_nfl_mcp.data_fetcher.DATASET_DEFINITIONS",
+            "fast_nfl_mcp.nfl_data_py_fetcher.DATASET_DEFINITIONS",
             {
                 "test_dataset": DatasetDefinition(
                     loader=lambda _: large_dataframe,
@@ -385,7 +385,7 @@ class TestDataFetcherFetchWithMocks:
             },
             clear=True,
         ):
-            fetcher = DataFetcher()
+            fetcher = NFLDataPyFetcher()
             response = fetcher.fetch("test_dataset", offset=200)
 
             assert isinstance(response, SuccessResponse)
@@ -398,7 +398,7 @@ class TestDataFetcherFetchWithMocks:
     ) -> None:
         """Test that truncation warning includes next offset for pagination."""
         with patch.dict(
-            "fast_nfl_mcp.data_fetcher.DATASET_DEFINITIONS",
+            "fast_nfl_mcp.nfl_data_py_fetcher.DATASET_DEFINITIONS",
             {
                 "test_dataset": DatasetDefinition(
                     loader=lambda _: large_dataframe,
@@ -408,7 +408,7 @@ class TestDataFetcherFetchWithMocks:
             },
             clear=True,
         ):
-            fetcher = DataFetcher()
+            fetcher = NFLDataPyFetcher()
             response = fetcher.fetch("test_dataset", offset=10, limit=10)
 
             assert isinstance(response, SuccessResponse)
@@ -416,7 +416,7 @@ class TestDataFetcherFetchWithMocks:
             assert "offset=20" in response.warning
 
 
-class TestDataFetcherErrorHandling:
+class TestNFLDataPyFetcherErrorHandling:
     """Tests for error handling in fetch method."""
 
     def test_network_error_returns_error_response(self) -> None:
@@ -426,7 +426,7 @@ class TestDataFetcherErrorHandling:
             raise ConnectionError("Unable to connect to server")
 
         with patch.dict(
-            "fast_nfl_mcp.data_fetcher.DATASET_DEFINITIONS",
+            "fast_nfl_mcp.nfl_data_py_fetcher.DATASET_DEFINITIONS",
             {
                 "failing_dataset": DatasetDefinition(
                     loader=raise_connection_error,
@@ -436,7 +436,7 @@ class TestDataFetcherErrorHandling:
             },
             clear=True,
         ):
-            fetcher = DataFetcher()
+            fetcher = NFLDataPyFetcher()
             response = fetcher.fetch("failing_dataset")
 
             assert isinstance(response, ErrorResponse)
@@ -452,7 +452,7 @@ class TestDataFetcherErrorHandling:
             raise TimeoutError("Request timed out")
 
         with patch.dict(
-            "fast_nfl_mcp.data_fetcher.DATASET_DEFINITIONS",
+            "fast_nfl_mcp.nfl_data_py_fetcher.DATASET_DEFINITIONS",
             {
                 "slow_dataset": DatasetDefinition(
                     loader=raise_timeout_error,
@@ -462,7 +462,7 @@ class TestDataFetcherErrorHandling:
             },
             clear=True,
         ):
-            fetcher = DataFetcher()
+            fetcher = NFLDataPyFetcher()
             response = fetcher.fetch("slow_dataset")
 
             assert isinstance(response, ErrorResponse)
@@ -476,7 +476,7 @@ class TestDataFetcherErrorHandling:
             raise ValueError("Invalid season: 1950")
 
         with patch.dict(
-            "fast_nfl_mcp.data_fetcher.DATASET_DEFINITIONS",
+            "fast_nfl_mcp.nfl_data_py_fetcher.DATASET_DEFINITIONS",
             {
                 "dataset": DatasetDefinition(
                     loader=raise_value_error,
@@ -486,7 +486,7 @@ class TestDataFetcherErrorHandling:
             },
             clear=True,
         ):
-            fetcher = DataFetcher()
+            fetcher = NFLDataPyFetcher()
             response = fetcher.fetch("dataset", {"seasons": [1950]})
 
             assert isinstance(response, SuccessResponse)
@@ -502,7 +502,7 @@ class TestDataFetcherErrorHandling:
             raise RuntimeError("Something went wrong")
 
         with patch.dict(
-            "fast_nfl_mcp.data_fetcher.DATASET_DEFINITIONS",
+            "fast_nfl_mcp.nfl_data_py_fetcher.DATASET_DEFINITIONS",
             {
                 "broken_dataset": DatasetDefinition(
                     loader=raise_runtime_error,
@@ -512,7 +512,7 @@ class TestDataFetcherErrorHandling:
             },
             clear=True,
         ):
-            fetcher = DataFetcher()
+            fetcher = NFLDataPyFetcher()
             response = fetcher.fetch("broken_dataset")
 
             assert isinstance(response, ErrorResponse)
@@ -526,7 +526,7 @@ class TestDataFetcherErrorHandling:
             raise OSError("Disk I/O error")
 
         with patch.dict(
-            "fast_nfl_mcp.data_fetcher.DATASET_DEFINITIONS",
+            "fast_nfl_mcp.nfl_data_py_fetcher.DATASET_DEFINITIONS",
             {
                 "broken_dataset": DatasetDefinition(
                     loader=raise_os_error,
@@ -536,7 +536,7 @@ class TestDataFetcherErrorHandling:
             },
             clear=True,
         ):
-            fetcher = DataFetcher()
+            fetcher = NFLDataPyFetcher()
             response = fetcher.fetch("broken_dataset")
 
             assert isinstance(response, ErrorResponse)
@@ -550,7 +550,7 @@ class TestDataFetcherErrorHandling:
             raise KeyboardInterrupt()
 
         with patch.dict(
-            "fast_nfl_mcp.data_fetcher.DATASET_DEFINITIONS",
+            "fast_nfl_mcp.nfl_data_py_fetcher.DATASET_DEFINITIONS",
             {
                 "interrupt_dataset": DatasetDefinition(
                     loader=raise_keyboard_interrupt,
@@ -560,7 +560,7 @@ class TestDataFetcherErrorHandling:
             },
             clear=True,
         ):
-            fetcher = DataFetcher()
+            fetcher = NFLDataPyFetcher()
             with pytest.raises(KeyboardInterrupt):
                 fetcher.fetch("interrupt_dataset")
 
@@ -571,7 +571,7 @@ class TestDataFetcherErrorHandling:
             raise SystemExit(1)
 
         with patch.dict(
-            "fast_nfl_mcp.data_fetcher.DATASET_DEFINITIONS",
+            "fast_nfl_mcp.nfl_data_py_fetcher.DATASET_DEFINITIONS",
             {
                 "exit_dataset": DatasetDefinition(
                     loader=raise_system_exit,
@@ -581,7 +581,7 @@ class TestDataFetcherErrorHandling:
             },
             clear=True,
         ):
-            fetcher = DataFetcher()
+            fetcher = NFLDataPyFetcher()
             with pytest.raises(SystemExit):
                 fetcher.fetch("exit_dataset")
 
@@ -592,7 +592,7 @@ class TestDataFetcherErrorHandling:
             raise AttributeError("object has no attribute 'foo'")
 
         with patch.dict(
-            "fast_nfl_mcp.data_fetcher.DATASET_DEFINITIONS",
+            "fast_nfl_mcp.nfl_data_py_fetcher.DATASET_DEFINITIONS",
             {
                 "buggy_dataset": DatasetDefinition(
                     loader=raise_attribute_error,
@@ -602,7 +602,7 @@ class TestDataFetcherErrorHandling:
             },
             clear=True,
         ):
-            fetcher = DataFetcher()
+            fetcher = NFLDataPyFetcher()
             response = fetcher.fetch("buggy_dataset")
 
             assert isinstance(response, ErrorResponse)
@@ -616,7 +616,7 @@ class TestDataFetcherErrorHandling:
             raise TypeError("unsupported operand type")
 
         with patch.dict(
-            "fast_nfl_mcp.data_fetcher.DATASET_DEFINITIONS",
+            "fast_nfl_mcp.nfl_data_py_fetcher.DATASET_DEFINITIONS",
             {
                 "buggy_dataset": DatasetDefinition(
                     loader=raise_type_error,
@@ -626,7 +626,7 @@ class TestDataFetcherErrorHandling:
             },
             clear=True,
         ):
-            fetcher = DataFetcher()
+            fetcher = NFLDataPyFetcher()
             response = fetcher.fetch("buggy_dataset")
 
             assert isinstance(response, ErrorResponse)
@@ -638,7 +638,7 @@ class TestDataFetcherErrorHandling:
         empty_df = pd.DataFrame()
 
         with patch.dict(
-            "fast_nfl_mcp.data_fetcher.DATASET_DEFINITIONS",
+            "fast_nfl_mcp.nfl_data_py_fetcher.DATASET_DEFINITIONS",
             {
                 "empty_dataset": DatasetDefinition(
                     loader=lambda _: empty_df,
@@ -648,7 +648,7 @@ class TestDataFetcherErrorHandling:
             },
             clear=True,
         ):
-            fetcher = DataFetcher()
+            fetcher = NFLDataPyFetcher()
             response = fetcher.fetch("empty_dataset")
 
             assert isinstance(response, SuccessResponse)
@@ -660,7 +660,7 @@ class TestDataFetcherErrorHandling:
     def test_none_dataframe_returns_warning(self) -> None:
         """Test that None DataFrame returns SuccessResponse with warning."""
         with patch.dict(
-            "fast_nfl_mcp.data_fetcher.DATASET_DEFINITIONS",
+            "fast_nfl_mcp.nfl_data_py_fetcher.DATASET_DEFINITIONS",
             {
                 "null_dataset": DatasetDefinition(
                     loader=lambda _: None,
@@ -670,7 +670,7 @@ class TestDataFetcherErrorHandling:
             },
             clear=True,
         ):
-            fetcher = DataFetcher()
+            fetcher = NFLDataPyFetcher()
             response = fetcher.fetch("null_dataset")
 
             assert isinstance(response, SuccessResponse)
@@ -679,7 +679,7 @@ class TestDataFetcherErrorHandling:
             assert response.warning is not None
 
 
-class TestDataFetcherDataConversion:
+class TestNFLDataPyFetcherDataConversion:
     """Tests for DataFrame to dict conversion."""
 
     def test_nan_values_converted_to_none(self) -> None:
@@ -692,7 +692,7 @@ class TestDataFetcherDataConversion:
         )
 
         with patch.dict(
-            "fast_nfl_mcp.data_fetcher.DATASET_DEFINITIONS",
+            "fast_nfl_mcp.nfl_data_py_fetcher.DATASET_DEFINITIONS",
             {
                 "test": DatasetDefinition(
                     loader=lambda _: df, description="Test", supports_seasons=True
@@ -700,7 +700,7 @@ class TestDataFetcherDataConversion:
             },
             clear=True,
         ):
-            fetcher = DataFetcher()
+            fetcher = NFLDataPyFetcher()
             response = fetcher.fetch("test")
 
             assert isinstance(response, SuccessResponse)
@@ -718,7 +718,7 @@ class TestDataFetcherDataConversion:
         )
 
         with patch.dict(
-            "fast_nfl_mcp.data_fetcher.DATASET_DEFINITIONS",
+            "fast_nfl_mcp.nfl_data_py_fetcher.DATASET_DEFINITIONS",
             {
                 "test": DatasetDefinition(
                     loader=lambda _: df, description="Test", supports_seasons=True
@@ -726,7 +726,7 @@ class TestDataFetcherDataConversion:
             },
             clear=True,
         ):
-            fetcher = DataFetcher()
+            fetcher = NFLDataPyFetcher()
             response = fetcher.fetch("test")
 
             assert isinstance(response, SuccessResponse)
@@ -743,7 +743,7 @@ class TestDataFetcherDataConversion:
         )
 
         with patch.dict(
-            "fast_nfl_mcp.data_fetcher.DATASET_DEFINITIONS",
+            "fast_nfl_mcp.nfl_data_py_fetcher.DATASET_DEFINITIONS",
             {
                 "test": DatasetDefinition(
                     loader=lambda _: df, description="Test", supports_seasons=True
@@ -751,7 +751,7 @@ class TestDataFetcherDataConversion:
             },
             clear=True,
         ):
-            fetcher = DataFetcher()
+            fetcher = NFLDataPyFetcher()
             response = fetcher.fetch("test")
 
             assert isinstance(response, SuccessResponse)
@@ -769,7 +769,7 @@ class TestDataFetcherDataConversion:
         )
 
         with patch.dict(
-            "fast_nfl_mcp.data_fetcher.DATASET_DEFINITIONS",
+            "fast_nfl_mcp.nfl_data_py_fetcher.DATASET_DEFINITIONS",
             {
                 "test": DatasetDefinition(
                     loader=lambda _: df, description="Test", supports_seasons=True
@@ -777,7 +777,7 @@ class TestDataFetcherDataConversion:
             },
             clear=True,
         ):
-            fetcher = DataFetcher()
+            fetcher = NFLDataPyFetcher()
             response = fetcher.fetch("test")
 
             # Should not raise
@@ -794,7 +794,7 @@ class TestDataFetcherDataConversion:
         )
 
         with patch.dict(
-            "fast_nfl_mcp.data_fetcher.DATASET_DEFINITIONS",
+            "fast_nfl_mcp.nfl_data_py_fetcher.DATASET_DEFINITIONS",
             {
                 "test": DatasetDefinition(
                     loader=lambda _: df, description="Test", supports_seasons=True
@@ -802,7 +802,7 @@ class TestDataFetcherDataConversion:
             },
             clear=True,
         ):
-            fetcher = DataFetcher()
+            fetcher = NFLDataPyFetcher()
             response = fetcher.fetch("test")
 
             assert isinstance(response, SuccessResponse)
@@ -822,7 +822,7 @@ class TestDataFetcherDataConversion:
         )
 
         with patch.dict(
-            "fast_nfl_mcp.data_fetcher.DATASET_DEFINITIONS",
+            "fast_nfl_mcp.nfl_data_py_fetcher.DATASET_DEFINITIONS",
             {
                 "test": DatasetDefinition(
                     loader=lambda _: df, description="Test", supports_seasons=True
@@ -830,7 +830,7 @@ class TestDataFetcherDataConversion:
             },
             clear=True,
         ):
-            fetcher = DataFetcher()
+            fetcher = NFLDataPyFetcher()
             response = fetcher.fetch("test")
 
             # Should not raise - pd.NA would cause TypeError without fix
@@ -838,7 +838,7 @@ class TestDataFetcherDataConversion:
             assert isinstance(json_str, str)
 
 
-class TestDataFetcherFilterWarnings:
+class TestNFLDataPyFetcherFilterWarnings:
     """Tests for invalid filter column warnings."""
 
     def test_invalid_filter_column_returns_warning(self) -> None:
@@ -846,7 +846,7 @@ class TestDataFetcherFilterWarnings:
         df = pd.DataFrame({"col1": [1, 2, 3], "col2": ["a", "b", "c"]})
 
         with patch.dict(
-            "fast_nfl_mcp.data_fetcher.DATASET_DEFINITIONS",
+            "fast_nfl_mcp.nfl_data_py_fetcher.DATASET_DEFINITIONS",
             {
                 "test": DatasetDefinition(
                     loader=lambda _: df, description="Test", supports_seasons=True
@@ -854,7 +854,7 @@ class TestDataFetcherFilterWarnings:
             },
             clear=True,
         ):
-            fetcher = DataFetcher()
+            fetcher = NFLDataPyFetcher()
             response = fetcher.fetch("test", filters={"invalid_col": ["x"]})
 
             assert isinstance(response, SuccessResponse)
@@ -867,7 +867,7 @@ class TestDataFetcherFilterWarnings:
         df = pd.DataFrame({"col1": [1, 2, 3]})
 
         with patch.dict(
-            "fast_nfl_mcp.data_fetcher.DATASET_DEFINITIONS",
+            "fast_nfl_mcp.nfl_data_py_fetcher.DATASET_DEFINITIONS",
             {
                 "test": DatasetDefinition(
                     loader=lambda _: df, description="Test", supports_seasons=True
@@ -875,7 +875,7 @@ class TestDataFetcherFilterWarnings:
             },
             clear=True,
         ):
-            fetcher = DataFetcher()
+            fetcher = NFLDataPyFetcher()
             response = fetcher.fetch("test", filters={"bad1": ["x"], "bad2": ["y"]})
 
             assert isinstance(response, SuccessResponse)
@@ -888,7 +888,7 @@ class TestDataFetcherFilterWarnings:
         df = pd.DataFrame({"col1": [1, 2, 3], "col2": ["a", "b", "c"]})
 
         with patch.dict(
-            "fast_nfl_mcp.data_fetcher.DATASET_DEFINITIONS",
+            "fast_nfl_mcp.nfl_data_py_fetcher.DATASET_DEFINITIONS",
             {
                 "test": DatasetDefinition(
                     loader=lambda _: df, description="Test", supports_seasons=True
@@ -896,7 +896,7 @@ class TestDataFetcherFilterWarnings:
             },
             clear=True,
         ):
-            fetcher = DataFetcher()
+            fetcher = NFLDataPyFetcher()
             response = fetcher.fetch("test", filters={"col1": [1, 2]})
 
             assert isinstance(response, SuccessResponse)
@@ -909,7 +909,7 @@ class TestDataFetcherFilterWarnings:
         df = pd.DataFrame({"col1": [1, 2, 3], "col2": ["a", "b", "c"]})
 
         with patch.dict(
-            "fast_nfl_mcp.data_fetcher.DATASET_DEFINITIONS",
+            "fast_nfl_mcp.nfl_data_py_fetcher.DATASET_DEFINITIONS",
             {
                 "test": DatasetDefinition(
                     loader=lambda _: df, description="Test", supports_seasons=True
@@ -917,7 +917,7 @@ class TestDataFetcherFilterWarnings:
             },
             clear=True,
         ):
-            fetcher = DataFetcher()
+            fetcher = NFLDataPyFetcher()
             response = fetcher.fetch(
                 "test", filters={"col1": [1], "invalid_col": ["x"]}
             )
@@ -935,7 +935,7 @@ class TestDataFetcherFilterWarnings:
         df = pd.DataFrame({"col1": [1, 2, 3]})
 
         with patch.dict(
-            "fast_nfl_mcp.data_fetcher.DATASET_DEFINITIONS",
+            "fast_nfl_mcp.nfl_data_py_fetcher.DATASET_DEFINITIONS",
             {
                 "test": DatasetDefinition(
                     loader=lambda _: df, description="Test", supports_seasons=True
@@ -943,7 +943,7 @@ class TestDataFetcherFilterWarnings:
             },
             clear=True,
         ):
-            fetcher = DataFetcher()
+            fetcher = NFLDataPyFetcher()
             response = fetcher.fetch(
                 "test", filters={"col1": [999], "invalid_col": ["x"]}
             )
@@ -955,7 +955,7 @@ class TestDataFetcherFilterWarnings:
             assert "invalid_col" in response.warning
 
 
-class TestDataFetcherParamsHandling:
+class TestNFLDataPyFetcherParamsHandling:
     """Tests for parameter handling in fetch."""
 
     def test_fetch_with_none_params(self) -> None:
@@ -967,7 +967,7 @@ class TestDataFetcherParamsHandling:
             return pd.DataFrame({"col": [1]})
 
         with patch.dict(
-            "fast_nfl_mcp.data_fetcher.DATASET_DEFINITIONS",
+            "fast_nfl_mcp.nfl_data_py_fetcher.DATASET_DEFINITIONS",
             {
                 "test": DatasetDefinition(
                     loader=mock_loader, description="Test", supports_seasons=True
@@ -975,7 +975,7 @@ class TestDataFetcherParamsHandling:
             },
             clear=True,
         ):
-            fetcher = DataFetcher()
+            fetcher = NFLDataPyFetcher()
             fetcher.fetch("test", None)
 
             # Should use current season as default
@@ -991,7 +991,7 @@ class TestDataFetcherParamsHandling:
             return pd.DataFrame({"col": [1]})
 
         with patch.dict(
-            "fast_nfl_mcp.data_fetcher.DATASET_DEFINITIONS",
+            "fast_nfl_mcp.nfl_data_py_fetcher.DATASET_DEFINITIONS",
             {
                 "test": DatasetDefinition(
                     loader=mock_loader, description="Test", supports_seasons=True
@@ -999,7 +999,7 @@ class TestDataFetcherParamsHandling:
             },
             clear=True,
         ):
-            fetcher = DataFetcher()
+            fetcher = NFLDataPyFetcher()
             fetcher.fetch("test", {})
 
             # Should use current season as default
@@ -1011,7 +1011,7 @@ class TestDataFetcherParamsHandling:
         df = pd.DataFrame({"col": [1]})
 
         with patch.dict(
-            "fast_nfl_mcp.data_fetcher.DATASET_DEFINITIONS",
+            "fast_nfl_mcp.nfl_data_py_fetcher.DATASET_DEFINITIONS",
             {
                 "test": DatasetDefinition(
                     loader=lambda _: df, description="Test", supports_seasons=True
@@ -1019,14 +1019,14 @@ class TestDataFetcherParamsHandling:
             },
             clear=True,
         ):
-            fetcher = DataFetcher()
+            fetcher = NFLDataPyFetcher()
             # Should not raise
             response = fetcher.fetch("test", {"unknown_param": "value"})
 
             assert isinstance(response, SuccessResponse)
 
 
-class TestDataFetcherColumnSelection:
+class TestNFLDataPyFetcherColumnSelection:
     """Tests for column selection in fetch method."""
 
     def test_empty_columns_list_returns_error(self) -> None:
@@ -1034,7 +1034,7 @@ class TestDataFetcherColumnSelection:
         df = pd.DataFrame({"col1": [1], "col2": [2]})
 
         with patch.dict(
-            "fast_nfl_mcp.data_fetcher.DATASET_DEFINITIONS",
+            "fast_nfl_mcp.nfl_data_py_fetcher.DATASET_DEFINITIONS",
             {
                 "test": DatasetDefinition(
                     loader=lambda _: df, description="Test", supports_seasons=True
@@ -1042,7 +1042,7 @@ class TestDataFetcherColumnSelection:
             },
             clear=True,
         ):
-            fetcher = DataFetcher()
+            fetcher = NFLDataPyFetcher()
             response = fetcher.fetch("test", columns=[])
 
             assert isinstance(response, ErrorResponse)
@@ -1054,7 +1054,7 @@ class TestDataFetcherColumnSelection:
         df = pd.DataFrame({"col1": [1], "col2": [2]})
 
         with patch.dict(
-            "fast_nfl_mcp.data_fetcher.DATASET_DEFINITIONS",
+            "fast_nfl_mcp.nfl_data_py_fetcher.DATASET_DEFINITIONS",
             {
                 "test": DatasetDefinition(
                     loader=lambda _: df, description="Test", supports_seasons=True
@@ -1062,7 +1062,7 @@ class TestDataFetcherColumnSelection:
             },
             clear=True,
         ):
-            fetcher = DataFetcher()
+            fetcher = NFLDataPyFetcher()
             response = fetcher.fetch("test", columns=["invalid1", "invalid2"])
 
             assert isinstance(response, ErrorResponse)
@@ -1076,7 +1076,7 @@ class TestDataFetcherColumnSelection:
         df = pd.DataFrame({"col1": [1], "col2": [2], "col3": [3]})
 
         with patch.dict(
-            "fast_nfl_mcp.data_fetcher.DATASET_DEFINITIONS",
+            "fast_nfl_mcp.nfl_data_py_fetcher.DATASET_DEFINITIONS",
             {
                 "test": DatasetDefinition(
                     loader=lambda _: df, description="Test", supports_seasons=True
@@ -1084,7 +1084,7 @@ class TestDataFetcherColumnSelection:
             },
             clear=True,
         ):
-            fetcher = DataFetcher()
+            fetcher = NFLDataPyFetcher()
             response = fetcher.fetch("test", columns=["col1", "col3"])
 
             assert isinstance(response, SuccessResponse)
@@ -1096,7 +1096,7 @@ class TestDataFetcherColumnSelection:
         df = pd.DataFrame({"col1": [1], "col2": [2]})
 
         with patch.dict(
-            "fast_nfl_mcp.data_fetcher.DATASET_DEFINITIONS",
+            "fast_nfl_mcp.nfl_data_py_fetcher.DATASET_DEFINITIONS",
             {
                 "test": DatasetDefinition(
                     loader=lambda _: df, description="Test", supports_seasons=True
@@ -1104,7 +1104,7 @@ class TestDataFetcherColumnSelection:
             },
             clear=True,
         ):
-            fetcher = DataFetcher()
+            fetcher = NFLDataPyFetcher()
             response = fetcher.fetch("test", columns=["col1", "invalid"])
 
             assert isinstance(response, SuccessResponse)
@@ -1116,7 +1116,7 @@ class TestDataFetcherColumnSelection:
         df = pd.DataFrame({"col1": [1], "col2": [2]})
 
         with patch.dict(
-            "fast_nfl_mcp.data_fetcher.DATASET_DEFINITIONS",
+            "fast_nfl_mcp.nfl_data_py_fetcher.DATASET_DEFINITIONS",
             {
                 "test": DatasetDefinition(
                     loader=lambda _: df, description="Test", supports_seasons=True
@@ -1124,19 +1124,19 @@ class TestDataFetcherColumnSelection:
             },
             clear=True,
         ):
-            fetcher = DataFetcher()
+            fetcher = NFLDataPyFetcher()
             response = fetcher.fetch("test", columns=None)
 
             assert isinstance(response, SuccessResponse)
             assert set(response.metadata.columns) == {"col1", "col2"}
 
 
-class TestDataFetcherApplyFilters:
+class TestNFLDataPyFetcherApplyFilters:
     """Tests for _apply_filters method."""
 
     def test_apply_filters_with_valid_keys(self) -> None:
         """Test _apply_filters with valid column keys."""
-        fetcher = DataFetcher()
+        fetcher = NFLDataPyFetcher()
         df = pd.DataFrame(
             {
                 "team": ["KC", "SF", "KC", "DET"],
@@ -1153,7 +1153,7 @@ class TestDataFetcherApplyFilters:
 
     def test_apply_filters_with_multiple_valid_keys(self) -> None:
         """Test _apply_filters with multiple valid column keys."""
-        fetcher = DataFetcher()
+        fetcher = NFLDataPyFetcher()
         df = pd.DataFrame(
             {
                 "team": ["KC", "SF", "KC", "DET", "KC"],
@@ -1171,7 +1171,7 @@ class TestDataFetcherApplyFilters:
 
     def test_apply_filters_with_multiple_values(self) -> None:
         """Test _apply_filters with multiple values for a single key."""
-        fetcher = DataFetcher()
+        fetcher = NFLDataPyFetcher()
         df = pd.DataFrame(
             {
                 "team": ["KC", "SF", "BUF", "DET"],
@@ -1187,7 +1187,7 @@ class TestDataFetcherApplyFilters:
 
     def test_apply_filters_with_nonexistent_key(self) -> None:
         """Test _apply_filters with a key not present in the DataFrame."""
-        fetcher = DataFetcher()
+        fetcher = NFLDataPyFetcher()
         df = pd.DataFrame(
             {
                 "team": ["KC", "SF", "BUF"],
@@ -1204,7 +1204,7 @@ class TestDataFetcherApplyFilters:
 
     def test_apply_filters_with_mixed_valid_invalid_keys(self) -> None:
         """Test _apply_filters with both valid and invalid column keys."""
-        fetcher = DataFetcher()
+        fetcher = NFLDataPyFetcher()
         df = pd.DataFrame(
             {
                 "team": ["KC", "SF", "BUF", "DET"],
@@ -1224,7 +1224,7 @@ class TestDataFetcherApplyFilters:
 
     def test_apply_filters_with_empty_filters(self) -> None:
         """Test _apply_filters with empty filters dict."""
-        fetcher = DataFetcher()
+        fetcher = NFLDataPyFetcher()
         df = pd.DataFrame({"team": ["KC", "SF"], "score": [28, 21]})
 
         result, invalid_cols = fetcher._apply_filters(df, {})
@@ -1234,7 +1234,7 @@ class TestDataFetcherApplyFilters:
 
     def test_apply_filters_no_matching_values(self) -> None:
         """Test _apply_filters when filter values don't match any rows."""
-        fetcher = DataFetcher()
+        fetcher = NFLDataPyFetcher()
         df = pd.DataFrame(
             {
                 "team": ["KC", "SF", "BUF"],
@@ -1248,7 +1248,7 @@ class TestDataFetcherApplyFilters:
         assert invalid_cols == []
 
 
-class TestDataFetcherFiltersViaFetch:
+class TestNFLDataPyFetcherFiltersViaFetch:
     """Tests for filter behavior via the fetch method."""
 
     def test_fetch_with_filters_returns_filtered_data(self) -> None:
@@ -1262,7 +1262,7 @@ class TestDataFetcherFiltersViaFetch:
         )
 
         with patch.dict(
-            "fast_nfl_mcp.data_fetcher.DATASET_DEFINITIONS",
+            "fast_nfl_mcp.nfl_data_py_fetcher.DATASET_DEFINITIONS",
             {
                 "test": DatasetDefinition(
                     loader=lambda _: df, description="Test", supports_seasons=True
@@ -1270,7 +1270,7 @@ class TestDataFetcherFiltersViaFetch:
             },
             clear=True,
         ):
-            fetcher = DataFetcher()
+            fetcher = NFLDataPyFetcher()
             response = fetcher.fetch("test", filters={"team": ["KC"]})
 
             assert isinstance(response, SuccessResponse)
@@ -1287,7 +1287,7 @@ class TestDataFetcherFiltersViaFetch:
         )
 
         with patch.dict(
-            "fast_nfl_mcp.data_fetcher.DATASET_DEFINITIONS",
+            "fast_nfl_mcp.nfl_data_py_fetcher.DATASET_DEFINITIONS",
             {
                 "test": DatasetDefinition(
                     loader=lambda _: df, description="Test", supports_seasons=True
@@ -1295,7 +1295,7 @@ class TestDataFetcherFiltersViaFetch:
             },
             clear=True,
         ):
-            fetcher = DataFetcher()
+            fetcher = NFLDataPyFetcher()
             response = fetcher.fetch("test", filters={"team": ["NYG"]})
 
             assert isinstance(response, SuccessResponse)
@@ -1314,7 +1314,7 @@ class TestDataFetcherFiltersViaFetch:
         )
 
         with patch.dict(
-            "fast_nfl_mcp.data_fetcher.DATASET_DEFINITIONS",
+            "fast_nfl_mcp.nfl_data_py_fetcher.DATASET_DEFINITIONS",
             {
                 "test": DatasetDefinition(
                     loader=lambda _: df, description="Test", supports_seasons=True
@@ -1322,7 +1322,7 @@ class TestDataFetcherFiltersViaFetch:
             },
             clear=True,
         ):
-            fetcher = DataFetcher()
+            fetcher = NFLDataPyFetcher()
             response = fetcher.fetch("test", filters={"nonexistent_col": ["value"]})
 
             assert isinstance(response, SuccessResponse)
@@ -1334,7 +1334,7 @@ class TestDataFetcherFiltersViaFetch:
         df = pd.DataFrame({"col": [1, 2, 3]})
 
         with patch.dict(
-            "fast_nfl_mcp.data_fetcher.DATASET_DEFINITIONS",
+            "fast_nfl_mcp.nfl_data_py_fetcher.DATASET_DEFINITIONS",
             {
                 "test": DatasetDefinition(
                     loader=lambda _: df, description="Test", supports_seasons=True
@@ -1342,7 +1342,7 @@ class TestDataFetcherFiltersViaFetch:
             },
             clear=True,
         ):
-            fetcher = DataFetcher()
+            fetcher = NFLDataPyFetcher()
             response = fetcher.fetch("test", filters={})
 
             assert isinstance(response, SuccessResponse)
@@ -1359,7 +1359,7 @@ class TestDataFetcherFiltersViaFetch:
         )
 
         with patch.dict(
-            "fast_nfl_mcp.data_fetcher.DATASET_DEFINITIONS",
+            "fast_nfl_mcp.nfl_data_py_fetcher.DATASET_DEFINITIONS",
             {
                 "test": DatasetDefinition(
                     loader=lambda _: df, description="Test", supports_seasons=True
@@ -1367,7 +1367,7 @@ class TestDataFetcherFiltersViaFetch:
             },
             clear=True,
         ):
-            fetcher = DataFetcher()
+            fetcher = NFLDataPyFetcher()
             response = fetcher.fetch("test", filters={"team": ["NYG"]})
 
             assert isinstance(response, SuccessResponse)

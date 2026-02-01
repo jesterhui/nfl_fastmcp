@@ -1,6 +1,6 @@
 """Data fetcher for NFL data with error handling and row limits.
 
-This module provides the DataFetcher class that wraps nfl_data_py calls
+This module provides the NFLDataPyFetcher class that wraps nfl_data_py calls
 with consistent error handling, row limits, and standardized response
 formatting using the Pydantic models defined in models.py.
 """
@@ -30,10 +30,10 @@ class DataFetchError(Exception):
     pass
 
 
-class DataFetcher:
-    """Fetches NFL data with error handling and row limits.
+class NFLDataPyFetcher:
+    """Fetches NFL data from nfl_data_py with error handling and row limits.
 
-    The DataFetcher wraps nfl_data_py function calls with:
+    The NFLDataPyFetcher wraps nfl_data_py function calls with:
     - Consistent error handling for network failures
     - Row limits to prevent excessive data responses
     - Pagination support via offset parameter
@@ -46,7 +46,7 @@ class DataFetcher:
     MAX_ROWS: int = DEFAULT_MAX_ROWS
 
     def __init__(self, max_rows: int | None = None) -> None:
-        """Initialize the DataFetcher.
+        """Initialize the NFLDataPyFetcher.
 
         Args:
             max_rows: Optional override for the maximum row limit.
@@ -145,7 +145,7 @@ class DataFetcher:
             if an error occurred.
 
         Examples:
-            >>> fetcher = DataFetcher()
+            >>> fetcher = NFLDataPyFetcher()
             >>> response = fetcher.fetch("play_by_play", {"seasons": [2024]})
             >>> response = fetcher.fetch("play_by_play", {"seasons": [2024]}, {"week": [1, 2]})
             >>> response = fetcher.fetch("play_by_play", {"seasons": [2024]}, offset=10, limit=10)
