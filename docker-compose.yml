@@ -11,6 +11,7 @@ services:
       - NFL_CACHE_DIR=/app/cache
     volumes:
       - nfl-cache:/app/cache
+      - ~/.kaggle:/home/appuser/.kaggle:ro
     restart: unless-stopped
 
 volumes:
