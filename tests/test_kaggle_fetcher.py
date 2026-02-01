@@ -24,8 +24,8 @@ from fast_nfl_mcp.models import ErrorResponse, SuccessResponse
 class TestKaggleFetcherAuth:
     """Tests for KaggleFetcher authentication checking."""
 
-    def test_auth_missing_kaggle_json(self, tmp_path: Path) -> None:
-        """Test that missing kaggle.json raises KaggleAuthError."""
+    def test_auth_missing_both_files(self, tmp_path: Path) -> None:
+        """Test that missing both kaggle.json and access_token raises KaggleAuthError."""
         fetcher = KaggleFetcher()
         fetcher._auth_checked = False
 
@@ -34,6 +34,7 @@ class TestKaggleFetcherAuth:
                 fetcher._check_auth()
 
             assert "kaggle.json" in str(exc_info.value)
+            assert "access_token" in str(exc_info.value)
             assert "https://www.kaggle.com/settings" in str(exc_info.value)
 
     def test_auth_kaggle_json_exists(self, tmp_path: Path) -> None:
@@ -42,6 +43,21 @@ class TestKaggleFetcherAuth:
         kaggle_dir = tmp_path / ".kaggle"
         kaggle_dir.mkdir()
         (kaggle_dir / "kaggle.json").write_text('{"username": "test"}')
+
+        fetcher = KaggleFetcher()
+        fetcher._auth_checked = False
+
+        with patch.object(Path, "home", return_value=tmp_path):
+            # Should not raise
+            fetcher._check_auth()
+            assert fetcher._auth_valid is True
+
+    def test_auth_access_token_exists(self, tmp_path: Path) -> None:
+        """Test that existing access_token passes auth check."""
+        # Create the kaggle directory and access_token file (no kaggle.json)
+        kaggle_dir = tmp_path / ".kaggle"
+        kaggle_dir.mkdir()
+        (kaggle_dir / "access_token").write_text("dummy_token")
 
         fetcher = KaggleFetcher()
         fetcher._auth_checked = False

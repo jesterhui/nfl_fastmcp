@@ -64,24 +64,28 @@ class KaggleFetcher:
         """Check if Kaggle authentication is configured.
 
         Raises:
-            KaggleAuthError: If ~/.kaggle/kaggle.json is not found or invalid.
+            KaggleAuthError: If neither ~/.kaggle/kaggle.json nor
+                ~/.kaggle/access_token is found.
         """
         if self._auth_checked:
             if not self._auth_valid:
                 raise KaggleAuthError(
                     "Kaggle authentication not configured. "
-                    "Please create ~/.kaggle/kaggle.json with your API credentials. "
+                    "Please create ~/.kaggle/kaggle.json or ~/.kaggle/access_token. "
                     "Get your API token from: https://www.kaggle.com/settings"
                 )
             return
 
-        kaggle_json = Path.home() / ".kaggle" / "kaggle.json"
-        if not kaggle_json.exists():
+        kaggle_dir = Path.home() / ".kaggle"
+        kaggle_json = kaggle_dir / "kaggle.json"
+        access_token = kaggle_dir / "access_token"
+
+        if not kaggle_json.exists() and not access_token.exists():
             self._auth_checked = True
             self._auth_valid = False
             raise KaggleAuthError(
                 "Kaggle authentication not configured. "
-                f"Please create {kaggle_json} with your API credentials. "
+                f"Please create {kaggle_json} or {access_token} with your API credentials. "
                 "Get your API token from: https://www.kaggle.com/settings"
             )
 
